@@ -8,6 +8,7 @@ using RoverDB.Exceptions;
 using RoverDB.Helpers;
 using RoverDB.IO;
 using Sandbox;
+using Sandbox.Internal;
 
 namespace RoverDB;
 
@@ -59,7 +60,7 @@ public static class RoverDatabase
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
-		var type = TypeLibrary.GetType<T>();
+		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
 		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) ) return;
 
 		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, true );
@@ -88,30 +89,12 @@ public static class RoverDatabase
 	/// Insert multiple documents into the database. The documents will have their IDs
 	/// set if they are empty.
 	/// </summary>
-	public static void InsertMany<T>( string collection, IEnumerable<T> documents ) where T : class
-	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
-
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collection, true );
-
-		foreach ( var document in documents )
-		{
-			var newDocument = new Document( document, true, collection );
-			relevantCollection.InsertDocument( newDocument );
-		}
-	}
-
-	/// <summary>
-	/// Insert multiple documents into the database. The documents will have their IDs
-	/// set if they are empty.
-	/// </summary>
 	public static void InsertMany<T>( IEnumerable<T> documents ) where T : class
 	{
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
-		var type = TypeLibrary.GetType<T>();
+		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
 		var collectionAttr = type.GetAttribute<CollectionAttribute>();
 
 		if ( collectionAttr is null )
@@ -131,7 +114,7 @@ public static class RoverDatabase
 	/// </summary>
 	public static T? SelectOne<T>( Func<T, bool> selector ) where T : class, new()
 	{
-		var type = TypeLibrary.GetType<T>();
+		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
 		var collectionAttr = type.GetAttribute<CollectionAttribute>();
 
 		if ( collectionAttr is null )
@@ -150,33 +133,7 @@ public static class RoverDatabase
 
 		return null;
 	}
-
-	/// <summary>
-	/// The same as SelectOne except faster since we can look it up by ID.
-	/// </summary>
-	public static T? SelectOneWithID<T>( object uid ) where T : class, new()
-	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
-
-		var type = TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
-
-		if ( collectionAttr is null )
-			return null;
-
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
-
-		if ( relevantCollection is null )
-			return null;
-
-		relevantCollection.CachedDocuments.TryGetValue( uid, out var document );
-
-		return document is null
-			? null
-			: ObjectPool.CloneObject( (T)document.Data, relevantCollection.DocumentClassType.FullName );
-	}
-
+	
 	/// <summary>
 	/// Select all documents from the database where selector evaluates to true.
 	/// </summary>
@@ -185,7 +142,7 @@ public static class RoverDatabase
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
-		var type = TypeLibrary.GetType<T>();
+		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
 
 		// If the collection attribute is not found on the type, we check on the base type.
 		var collectionAttr = type.GetAttribute<CollectionAttribute>()
@@ -250,7 +207,7 @@ public static class RoverDatabase
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
-		var type = TypeLibrary.GetType<T>();
+		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
 		var collectionAttr = type.GetAttribute<CollectionAttribute>();
 
 		if ( collectionAttr is null )
@@ -279,7 +236,7 @@ public static class RoverDatabase
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
-		var type = TypeLibrary.GetType<T>();
+		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
 		var collectionAttr = type.GetAttribute<CollectionAttribute>();
 
 		if ( collectionAttr is null )
@@ -317,64 +274,6 @@ public static class RoverDatabase
 	}
 
 	/// <summary>
-	/// The same as Delete except faster since we can look it up by ID.
-	/// </summary>
-	public static void DeleteWithID<T>( string collection, object id ) where T : class
-	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
-
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collection, false );
-		if ( relevantCollection is null ) return;
-
-		relevantCollection.CachedDocuments.TryRemove( id, out _ );
-
-		var attempt = 0;
-
-		while ( true )
-		{
-			if ( attempt++ >= 10 )
-				throw new RoverDatabaseException(
-					$"failed to delete document from collection \"{collection}\" after 10 tries - is the file in use by something else?" );
-
-			if ( FileController.DeleteDocument( collection, id ) == null )
-				break;
-		}
-	}
-
-	/// <summary>
-	/// The same as Delete except faster since we can look it up by ID.
-	/// </summary>
-	public static void DeleteWithID<T>( object id ) where T : class
-	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
-
-		var type = TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
-
-		if ( collectionAttr is null )
-			return;
-
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
-		if ( relevantCollection is null ) return;
-
-		relevantCollection.CachedDocuments.TryRemove( id, out _ );
-
-		var attempt = 0;
-
-		while ( true )
-		{
-			if ( attempt++ >= 10 )
-				throw new RoverDatabaseException(
-					$"failed to delete document from collection \"{collectionAttr.Name}\" after 10 tries - is the file in use by something else?" );
-
-			if ( FileController.DeleteDocument( collectionAttr.Name, id ) == null )
-				break;
-		}
-	}
-
-	/// <summary>
 	/// Return whether there are any documents in the database where selector evaluates
 	/// to true.
 	/// </summary>
@@ -406,7 +305,7 @@ public static class RoverDatabase
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
-		var type = TypeLibrary.GetType<T>();
+		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
 		var collectionAttr = type.GetAttribute<CollectionAttribute>();
 
 		if ( collectionAttr is null )
@@ -424,24 +323,6 @@ public static class RoverDatabase
 		}
 
 		return false;
-	}
-
-	/// <summary>
-	/// The same as Any except faster since we can look it up by ID.
-	/// </summary>
-	public static bool AnyWithID<T>( object id )
-	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
-
-		var type = TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
-
-		if ( collectionAttr is null )
-			return false;
-
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
-		return relevantCollection is not null && relevantCollection.CachedDocuments.ContainsKey( id );
 	}
 
 	/// <summary>

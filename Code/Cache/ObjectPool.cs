@@ -42,7 +42,7 @@ internal static class ObjectPool
 	{
 		var targetType = classType;
 		
-		classType = CollectionAttributeHelper.GetCollectionType(classType)!.TargetType;
+		classType = classType.GetCollectionType();
 		var classTypeName = classType.FullName!;
 		
 		if ( !_objectPool.ContainsKey(classTypeName) )
@@ -63,7 +63,7 @@ internal static class ObjectPool
 	public static T GetInstance<T>(Type classType)
 	{
 		// var baseClassType = classType;
-		var baseType = CollectionAttributeHelper.GetCollectionType( classType )!.TargetType;
+		var baseType = classType.GetCollectionType();
 		
 		Log.Info("GetInstance1: " + string.Join(", ", typeof(T), baseType, classType));
 		
@@ -82,7 +82,7 @@ internal static class ObjectPool
 	/// </summary>
 	public static void TryRegisterType( Type classType )
 	{
-		classType = CollectionAttributeHelper.GetCollectionType(classType)!.TargetType;
+		classType = classType.GetCollectionType();
 		var classTypeName = classType.FullName!;
 		
 		// Different collections might use the same type. So this is possible.

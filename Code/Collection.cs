@@ -29,7 +29,7 @@ internal sealed class Collection
 	/// </summary>
 	public void InsertDocument( Document document )
 	{
-		var documentType = CollectionAttributeHelper.GetCollectionType( document.Data.GetType() )!.TargetType;
+		var documentType = document.Data.GetType().GetCollectionType();
 		
 		if ( documentType.ToString() != DocumentClassTypeSerialized )
 		{

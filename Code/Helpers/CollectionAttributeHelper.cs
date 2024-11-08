@@ -16,16 +16,16 @@ public static class CollectionAttributeHelper
 		return isBaseType;
 	}
 
-	public static TypeDescription? GetCollectionType( Type type )
+	public static Type? GetCollectionType( this Type type )
 	{
 		var t = TypeLibrary.GetType( type );
 		var collectionAttr = t.GetAttribute<CollectionAttribute>();
 
 		if ( collectionAttr is not null )
-			return t;
+			return t.TargetType;
 
 		collectionAttr = t.BaseType.GetAttribute<CollectionAttribute>();
-		return collectionAttr is not null ? t.BaseType : null;
+		return collectionAttr is not null ? t.BaseType.TargetType : null;
 	}
 
 	public static bool TryGetAttribute( TypeDescription type, out bool isBaseType, out CollectionAttribute? attribute )

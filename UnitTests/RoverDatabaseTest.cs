@@ -191,7 +191,7 @@ public partial class RoverDatabaseTest
 	public void SelectingUnitialisedCollectionReturnsEmptyList()
 	{
 		RoverDatabase.InitializeAsync().GetAwaiter().GetResult();
-
+		
 		var results = RoverDatabase.Select<TestClasses.ReadmeExample>( "players", x => x.Health == 50 );
 
 		Assert.AreEqual( 0, results.Count );

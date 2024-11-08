@@ -126,7 +126,7 @@ static internal class Cache
 			
 			ObjectPool.TryRegisterType( documentClassType );
 
-			documentClassType = CollectionAttributeHelper.GetCollectionType( documentClassType )!.TargetType;
+			documentClassType = documentClassType.GetCollectionType();
 			Log.Info("Document class type: " + documentClassType.FullName);
 			
 			var newCollection = new Collection()
