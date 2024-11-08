@@ -95,11 +95,11 @@ public static class RoverDatabase
 			InitializeAsync().GetAwaiter().GetResult();
 
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
-
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) ) return;
+		
 		if ( collectionAttr is null )
 			return;
-
+		
 		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, true );
 
 		foreach ( var document in documents )
@@ -115,11 +115,13 @@ public static class RoverDatabase
 	public static T? SelectOne<T>( Func<T, bool> selector ) where T : class, new()
 	{
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
-
+		
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) )
+			return null;
+		
 		if ( collectionAttr is null )
 			return null;
-
+		
 		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
 
 		if ( relevantCollection is null )
@@ -143,16 +145,15 @@ public static class RoverDatabase
 			InitializeAsync().GetAwaiter().GetResult();
 
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
-
-		// If the collection attribute is not found on the type, we check on the base type.
-		var collectionAttr = type.GetAttribute<CollectionAttribute>()
-		                     ?? type.BaseType.GetAttribute<CollectionAttribute>();
-
+		var output = new List<T>();
+		
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) ) 
+			return output;
+		
 		if ( collectionAttr is null )
-			return new List<T>();
-
+			return output;
+		
 		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
-		List<T> output = new();
 
 		if ( relevantCollection is null )
 			return output;
@@ -206,15 +207,17 @@ public static class RoverDatabase
 	{
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
-
+		
+		var output = new List<T>();
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
-
+		
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) ) 
+			return output;
+		
 		if ( collectionAttr is null )
-			return new List<T>();
-
+			return output;
+		
 		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
-		List<T> output = new();
 
 		if ( relevantCollection is null )
 			return output;
@@ -237,15 +240,15 @@ public static class RoverDatabase
 			InitializeAsync().GetAwaiter().GetResult();
 
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
-
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) ) return;
+		
 		if ( collectionAttr is null )
 			return;
 
 		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
 		if ( relevantCollection is null ) return;
 
-		List<object> idsToDelete = new();
+		var idsToDelete = new List<object>();
 
 		foreach ( var pair in relevantCollection.CachedDocuments )
 		{
@@ -277,37 +280,16 @@ public static class RoverDatabase
 	/// Return whether there are any documents in the database where selector evaluates
 	/// to true.
 	/// </summary>
-	public static bool Any<T>( string collection, Func<T, bool> selector ) where T : class
-	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
-
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collection, false );
-
-		if ( relevantCollection is null )
-			return false;
-
-		foreach ( var pair in relevantCollection.CachedDocuments )
-		{
-			if ( selector.Invoke( (T)pair.Value.Data ) )
-				return true;
-		}
-
-		return false;
-	}
-
-	/// <summary>
-	/// Return whether there are any documents in the database where selector evaluates
-	/// to true.
-	/// </summary>
 	public static bool Any<T>( Func<T, bool> selector ) where T : class
 	{
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
-
+		
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) ) 
+			return false;
+		
 		if ( collectionAttr is null )
 			return false;
 
