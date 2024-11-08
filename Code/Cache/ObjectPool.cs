@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using RoverDB.Exceptions;
+using RoverDB.Helpers;
 using Sandbox;
 using Sandbox.Internal;
 
@@ -21,22 +22,29 @@ internal static class ObjectPool
 		_timeLastCheckedPool = DateTime.UtcNow.AddHours( -1 );
 	}
 
-	public static T CloneObject<T>( T theObject, string classTypeName ) where T : new()
+	public static T CloneObject<T>( T theObject, string classTypeName )
 	{
-		var instance = GetInstance<T>( classTypeName );
+		Log.Info("Clone instance for " + string.Join(", ", theObject.GetType(), classTypeName));
+		
+		var instance = GetInstance<T>( theObject.GetType() );
 		Cloning.CopyClassData( theObject, instance, classTypeName );
 		return instance;
 	}
 
 	public static object CloneObject( object theObject, Type objectType )
 	{
-		var instance = GetInstance( objectType.FullName, objectType );
-		Cloning.CopyClassData( theObject, instance, objectType.FullName );
+		var instance = GetInstance( objectType );
+		Cloning.CopyClassData( theObject, instance, objectType.FullName! );
 		return instance;
 	}
 
-	public static object GetInstance( string classTypeName, Type classType )
+	public static object GetInstance( Type classType )
 	{
+		var targetType = classType;
+		
+		classType = CollectionAttributeHelper.GetCollectionType(classType)!.TargetType;
+		var classTypeName = classType.FullName!;
+		
 		if ( !_objectPool.ContainsKey(classTypeName) )
 		{
 			throw new RoverDatabaseException( $"there is no registered instance pool for the type {classTypeName} - " +
@@ -46,24 +54,37 @@ internal static class ObjectPool
 		if ( _objectPool[classTypeName].TypePool.TryTake( out var instance ) )
 			return instance;
 
+		Log.Info("Create instance for " + targetType.FullName);
+		
 		// If we couldn't get an instance, then we just have to create a new one.
-		return GlobalGameNamespace.TypeLibrary.Create<object>( classType );
+		return GlobalGameNamespace.TypeLibrary.Create<object>( targetType );
 	}
 
-	public static T GetInstance<T>(string classType) where T : new()
+	public static T GetInstance<T>(Type classType)
 	{
-		if ( _objectPool[classType].TypePool.TryTake( out var instance ) )
+		// var baseClassType = classType;
+		var baseType = CollectionAttributeHelper.GetCollectionType( classType )!.TargetType;
+		
+		Log.Info("GetInstance1: " + string.Join(", ", typeof(T), baseType, classType));
+		
+		if ( _objectPool[baseType.FullName!].TypePool.TryTake( out var instance ) )
 			return (T)instance;
 
 		// If we couldn't get an instance, then we just have to create a new one.
-		return new T();
+		// return new T();
+
+		Log.Info("GetInstance2: " + string.Join(", ", typeof(T), classType));
+		return (T)GlobalGameNamespace.TypeLibrary.Create( classType.Name, classType );
 	}
 
 	/// <summary>
 	/// Tell the pool that we want to pool this class type.
 	/// </summary>
-	public static void TryRegisterType( string classTypeName, Type classType )
+	public static void TryRegisterType( Type classType )
 	{
+		classType = CollectionAttributeHelper.GetCollectionType(classType)!.TargetType;
+		var classTypeName = classType.FullName!;
+		
 		// Different collections might use the same type. So this is possible.
 		if ( _objectPool.ContainsKey( classTypeName ) )
 			return;

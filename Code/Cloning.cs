@@ -34,7 +34,10 @@ internal static class Cloning
 
 	public static void CopyClassData( object sourceClass, object destinationClass, string classTypeName )
 	{
-		var properties = PropertyDescriptionsCache.GetPropertyDescriptionsForType( classTypeName, sourceClass );
+		Log.Info("CopyClassData: " + string.Join(", ", sourceClass, destinationClass, classTypeName, sourceClass.GetType().FullName));
+		
+		var properties = PropertyDescriptionsCache.GetPropertyDescriptionsForType( sourceClass.GetType().FullName!, sourceClass );
+		// var properties = PropertyDescriptionsCache.GetPropertyDescriptionsForType( classTypeName, sourceClass );
 
 		PropertyDescription? uidProperty = null;
 

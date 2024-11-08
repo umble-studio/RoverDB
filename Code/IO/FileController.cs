@@ -259,7 +259,6 @@ internal static class FileController
 					{
 						var document = new Document(
 							SerializationHelper.DeserializeClass( contents, collection.DocumentClassType ),
-							collection.DocumentClassType,
 							false,
 							collection.CollectionName );
 

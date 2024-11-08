@@ -13,7 +13,7 @@ namespace RoverDB;
 
 public static class RoverDatabase
 {
-	public static bool IsInitialised => Initialization.CurrentDatabaseState == DatabaseState.Initialised;
+	public static bool IsInitialised => Initialization.CurrentDatabaseState is DatabaseState.Initialised;
 
 	/// <summary>
 	/// Initialises the database. You don't have to call this manually as the database will do this for you
@@ -47,22 +47,7 @@ public static class RoverDatabase
 	/// </summary>
 	public static void CopySavedData<T>( T sourceClass, T destinationClass )
 	{
-		Cloning.CopyClassData<T>( sourceClass, destinationClass );
-	}
-
-	/// <summary>
-	/// Insert a document into the database. The document will have its ID set
-	/// if it is empty.
-	/// </summary>
-	public static void Insert<T>( string collection, T document ) where T : class
-	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
-
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collection, true );
-
-		var newDocument = new Document( document, typeof(T), true, collection );
-		relevantCollection.InsertDocument( newDocument );
+		Cloning.CopyClassData( sourceClass, destinationClass );
 	}
 
 	/// <summary>
@@ -75,15 +60,12 @@ public static class RoverDatabase
 			InitializeAsync().GetAwaiter().GetResult();
 
 		var type = TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) ) return;
 
-		if ( collectionAttr is not null )
-		{
-			Insert( collectionAttr.Name, document );
-			return;
-		}
+		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, true );
 
-		Log.Error( $"Type {type.FullName} is not a collection" );
+		var newDocument = new Document( document, true, collectionAttr.Name );
+		relevantCollection.InsertDocument( newDocument );
 	}
 
 	/// <summary>
@@ -91,14 +73,14 @@ public static class RoverDatabase
 	/// 
 	/// For internal use.
 	/// </summary>
-	internal static void Insert( string collection, object document, Type documentType )
+	internal static void Insert( string collection, object document )
 	{
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
-		var relevantCollection = Cache.Cache.GetCollectionByName( collection, true, documentType );
+		var relevantCollection = Cache.Cache.GetCollectionByName( collection, true, document.GetType() );
 
-		Document newDocument = new(document, documentType, true, collection);
+		var newDocument = new Document( document, true, collection );
 		relevantCollection.InsertDocument( newDocument );
 	}
 
@@ -115,7 +97,7 @@ public static class RoverDatabase
 
 		foreach ( var document in documents )
 		{
-			var newDocument = new Document( document, typeof(T), true, collection );
+			var newDocument = new Document( document, true, collection );
 			relevantCollection.InsertDocument( newDocument );
 		}
 	}
@@ -132,24 +114,30 @@ public static class RoverDatabase
 		var type = TypeLibrary.GetType<T>();
 		var collectionAttr = type.GetAttribute<CollectionAttribute>();
 
-		if ( collectionAttr is not null )
-		{
-			InsertMany( collectionAttr.Name, documents );
+		if ( collectionAttr is null )
 			return;
-		}
 
-		Log.Error( $"Type {type.FullName} is not a collection" );
+		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, true );
+
+		foreach ( var document in documents )
+		{
+			var newDocument = new Document( document, true, collectionAttr.Name );
+			relevantCollection.InsertDocument( newDocument );
+		}
 	}
 
 	/// <summary>
 	/// Fetch a single document from the database where selector evaluates to true.
 	/// </summary>
-	public static T? SelectOne<T>( string collection, Func<T, bool> selector ) where T : class, new()
+	public static T? SelectOne<T>( Func<T, bool> selector ) where T : class, new()
 	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
+		var type = TypeLibrary.GetType<T>();
+		var collectionAttr = type.GetAttribute<CollectionAttribute>();
 
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collection, false );
+		if ( collectionAttr is null )
+			return null;
+
+		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
 
 		if ( relevantCollection is null )
 			return null;
@@ -164,29 +152,20 @@ public static class RoverDatabase
 	}
 
 	/// <summary>
-	/// Fetch a single document from the database where selector evaluates to true.
-	/// </summary>
-	public static T? SelectOne<T>( Func<T, bool> selector ) where T : class, new()
-	{
-		var type = TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
-
-		if ( collectionAttr is not null )
-			return SelectOne( collectionAttr.Name, selector );
-
-		Log.Error( $"Type {type.FullName} is not a collection" );
-		return null;
-	}
-
-	/// <summary>
 	/// The same as SelectOne except faster since we can look it up by ID.
 	/// </summary>
-	public static T? SelectOneWithID<T>( string collection, object uid ) where T : class, new()
+	public static T? SelectOneWithID<T>( object uid ) where T : class, new()
 	{
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collection, false );
+		var type = TypeLibrary.GetType<T>();
+		var collectionAttr = type.GetAttribute<CollectionAttribute>();
+
+		if ( collectionAttr is null )
+			return null;
+
+		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
 
 		if ( relevantCollection is null )
 			return null;
@@ -199,32 +178,23 @@ public static class RoverDatabase
 	}
 
 	/// <summary>
-	/// The same as SelectOne except faster since we can look it up by ID.
+	/// Select all documents from the database where selector evaluates to true.
 	/// </summary>
-	public static T? SelectOneWithID<T>( object uid ) where T : class, new()
+	public static List<T> Select<T>( Func<T, bool>? selector = null ) where T : class
 	{
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
 		var type = TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
 
-		if ( collectionAttr is not null )
-			return SelectOneWithID<T>( collectionAttr.Name, uid );
+		// If the collection attribute is not found on the type, we check on the base type.
+		var collectionAttr = type.GetAttribute<CollectionAttribute>()
+		                     ?? type.BaseType.GetAttribute<CollectionAttribute>();
 
-		Log.Error( $"Type {type.FullName} is not a collection" );
-		return null;
-	}
+		if ( collectionAttr is null )
+			return new List<T>();
 
-	/// <summary>
-	/// Select all documents from the database where selector evaluates to true.
-	/// </summary>
-	public static List<T> Select<T>( string collection, Func<T, bool>? selector = null ) where T : class, new()
-	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
-
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collection, false );
+		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
 		List<T> output = new();
 
 		if ( relevantCollection is null )
@@ -232,9 +202,14 @@ public static class RoverDatabase
 
 		foreach ( var pair in relevantCollection.CachedDocuments )
 		{
+			// If the current document is not of the correct type, ignore it.
+			if ( pair.Value.Data.GetType() != typeof(T) )
+				continue;
+
 			if ( selector is null )
 			{
-				output.Add( ObjectPool.CloneObject( (T)pair.Value.Data, relevantCollection.DocumentClassType.FullName ) );
+				output.Add(
+					ObjectPool.CloneObject( (T)pair.Value.Data, relevantCollection.DocumentClassType.FullName ) );
 			}
 			else
 			{
@@ -242,67 +217,6 @@ public static class RoverDatabase
 					output.Add(
 						ObjectPool.CloneObject( (T)pair.Value.Data, relevantCollection.DocumentClassType.FullName ) );
 			}
-		}
-
-		return output;
-	}
-
-	/// <summary>
-	/// Select all documents from the database where selector evaluates to true.
-	/// </summary>
-	public static List<T> Select<T>( Func<T, bool>? selector = null ) where T : class, new()
-	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
-
-		var type = TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
-
-		if ( collectionAttr is not null )
-			return Select( collectionAttr.Name, selector );
-
-		Log.Error( $"Type {type.FullName} is not a collection" );
-		return new List<T>();
-	}
-
-	/// <summary>
-	/// DO NOT USE THIS FUNCTION UNLESS YOU FULLY UNDERSTAND THE BELOW, AS THERE IS
-	/// A RISK YOU COULD CORRUPT YOUR DATA. <br/>
-	/// <br/>
-	/// This does the exact same thing as Select, except it is about 9x faster.
-	/// They work differently, however. <br/>
-	/// <br/>
-	/// Select copies the data from the cache into new objects and then gives those
-	/// new objects to you. That means that any changes you make to those new objects
-	/// don't affect anything else - you're free to do what you want with them. The
-	/// downside to this is that there is an overhead invovled in creating all those
-	/// new objects. <br/>
-	/// <br/>
-	/// SelectUnsafeReferences on the other hand will give you a reference to the data
-	/// that is stored in the cache. This is faster because it means no new copy has to
-	/// be made. However, because it's giving you a reference, this means that ANY CHANGES
-	/// YOU MAKE TO THE RETURNED OBJECTS WILL BE REFLECTED IN THE CACHE, AND THEREFORE MAY
-	/// CHANGE THE VALUES IN THE DATABASE UNEXEPECTEDLY!!! You should therefore not modify
-	/// the returned objects in any way, only read them.<br/>
-	/// <br/>
-	/// You are guaranteed that the cache will not change the object after you have requested
-	/// it (because all inserts are new objects).
-	/// </summary>
-	public static List<T> SelectUnsafeReferences<T>( string collection, Func<T, bool> selector ) where T : class
-	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
-
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collection, false );
-		List<T> output = new();
-
-		if ( relevantCollection is null )
-			return output;
-
-		foreach ( var pair in relevantCollection.CachedDocuments )
-		{
-			if ( selector.Invoke( (T)pair.Value.Data ) )
-				output.Add( (T)pair.Value.Data );
 		}
 
 		return output;
@@ -339,22 +253,39 @@ public static class RoverDatabase
 		var type = TypeLibrary.GetType<T>();
 		var collectionAttr = type.GetAttribute<CollectionAttribute>();
 
-		if ( collectionAttr is not null )
-			return SelectUnsafeReferences( collectionAttr.Name, selector );
+		if ( collectionAttr is null )
+			return new List<T>();
 
-		Log.Error( $"Type {type.FullName} is not a collection" );
-		return new List<T>();
+		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+		List<T> output = new();
+
+		if ( relevantCollection is null )
+			return output;
+
+		foreach ( var pair in relevantCollection.CachedDocuments )
+		{
+			if ( selector.Invoke( (T)pair.Value.Data ) )
+				output.Add( (T)pair.Value.Data );
+		}
+
+		return output;
 	}
 
 	/// <summary>
 	/// Delete all documents from the database where selector evaluates to true.
 	/// </summary>
-	public static void Delete<T>( string collection, Predicate<T> selector ) where T : class
+	public static void Delete<T>( Predicate<T> selector ) where T : class
 	{
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collection, false );
+		var type = TypeLibrary.GetType<T>();
+		var collectionAttr = type.GetAttribute<CollectionAttribute>();
+
+		if ( collectionAttr is null )
+			return;
+
+		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
 		if ( relevantCollection is null ) return;
 
 		List<object> idsToDelete = new();
@@ -376,32 +307,13 @@ public static class RoverDatabase
 			{
 				if ( attempt++ >= 10 )
 					throw new RoverDatabaseException(
-						$"failed to delete document from collection \"{collection}\" after 10 tries: " + error );
+						$"failed to delete document from collection \"{collectionAttr.Name}\" after 10 tries: " +
+						error );
 
-				error = FileController.DeleteDocument( collection, id );
+				error = FileController.DeleteDocument( collectionAttr.Name, id );
 				if ( string.IsNullOrEmpty( error ) ) break;
 			}
 		}
-	}
-
-	/// <summary>
-	/// Delete all documents from the database where selector evaluates to true.
-	/// </summary>
-	public static void Delete<T>( Predicate<T> selector ) where T : class
-	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
-
-		var type = TypeLibrary.GetType<T>();
-		var collectionAttr = type.GetAttribute<CollectionAttribute>();
-
-		if ( collectionAttr is not null )
-		{
-			Delete( collectionAttr.Name, selector );
-			return;
-		}
-
-		Log.Error( $"Type {type.FullName} is not a collection" );
 	}
 
 	/// <summary>
@@ -441,13 +353,25 @@ public static class RoverDatabase
 		var type = TypeLibrary.GetType<T>();
 		var collectionAttr = type.GetAttribute<CollectionAttribute>();
 
-		if ( collectionAttr is not null )
-		{
-			DeleteWithID<T>( collectionAttr.Name, id );
+		if ( collectionAttr is null )
 			return;
-		}
 
-		Log.Error( $"Type {type.FullName} is not a collection" );
+		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+		if ( relevantCollection is null ) return;
+
+		relevantCollection.CachedDocuments.TryRemove( id, out _ );
+
+		var attempt = 0;
+
+		while ( true )
+		{
+			if ( attempt++ >= 10 )
+				throw new RoverDatabaseException(
+					$"failed to delete document from collection \"{collectionAttr.Name}\" after 10 tries - is the file in use by something else?" );
+
+			if ( FileController.DeleteDocument( collectionAttr.Name, id ) == null )
+				break;
+		}
 	}
 
 	/// <summary>
@@ -485,23 +409,21 @@ public static class RoverDatabase
 		var type = TypeLibrary.GetType<T>();
 		var collectionAttr = type.GetAttribute<CollectionAttribute>();
 
-		if ( collectionAttr is not null )
-			return Any( collectionAttr.Name, selector );
+		if ( collectionAttr is null )
+			return false;
 
-		Log.Error( $"Type {type.FullName} is not a collection" );
+		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+
+		if ( relevantCollection is null )
+			return false;
+
+		foreach ( var pair in relevantCollection.CachedDocuments )
+		{
+			if ( selector.Invoke( (T)pair.Value.Data ) )
+				return true;
+		}
+
 		return false;
-	}
-
-	/// <summary>
-	/// The same as Any except faster since we can look it up by ID.
-	/// </summary>
-	public static bool AnyWithID<T>( string collection, object id )
-	{
-		if ( !IsInitialised )
-			InitializeAsync().GetAwaiter().GetResult();
-
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collection, false );
-		return relevantCollection is not null && relevantCollection.CachedDocuments.ContainsKey( id );
 	}
 
 	/// <summary>
@@ -515,11 +437,11 @@ public static class RoverDatabase
 		var type = TypeLibrary.GetType<T>();
 		var collectionAttr = type.GetAttribute<CollectionAttribute>();
 
-		if ( collectionAttr is not null )
-			return AnyWithID<T>( collectionAttr.Name, id );
+		if ( collectionAttr is null )
+			return false;
 
-		Log.Error( $"Type {type.FullName} is not a collection" );
-		return false;
+		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+		return relevantCollection is not null && relevantCollection.CachedDocuments.ContainsKey( id );
 	}
 
 	/// <summary>

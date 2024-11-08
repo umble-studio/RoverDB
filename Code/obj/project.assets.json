@@ -38,7 +38,6 @@
       "packagesPath": "C:\\Users\\bubbl\\.nuget\\packages\\",
       "outputPath": "C:\\Users\\bubbl\\Documents\\S&box Projects\\rp\\Libraries\\umblestudio.roverdb\\Code\\obj\\",
       "projectStyle": "PackageReference",
-      "UsingMicrosoftNETSdk": false,
       "configFilePaths": [
         "C:\\Users\\bubbl\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
@@ -66,7 +65,8 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "all"
-      }
+      },
+      "SdkAnalysisLevel": "9.0.100"
     },
     "frameworks": {
       "net7.0": {

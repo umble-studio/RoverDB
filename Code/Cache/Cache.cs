@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using RoverDB.Exceptions;
+using RoverDB.Helpers;
 using RoverDB.IO;
 using RoverDB.Testing;
 using Sandbox;
@@ -121,12 +122,14 @@ static internal class Cache
 		// be madness.
 		lock ( _collectionCreationLock )
 		{
-			if ( _collections.ContainsKey( name ) )
-				return;
+			if ( _collections.ContainsKey( name ) ) return;
+			
+			ObjectPool.TryRegisterType( documentClassType );
 
-			ObjectPool.TryRegisterType( documentClassType.FullName!, documentClassType );
-
-			Collection newCollection = new()
+			documentClassType = CollectionAttributeHelper.GetCollectionType( documentClassType )!.TargetType;
+			Log.Info("Document class type: " + documentClassType.FullName);
+			
+			var newCollection = new Collection()
 			{
 				CollectionName = name,
 				DocumentClassType = documentClassType,
@@ -146,9 +149,7 @@ static internal class Cache
 						$"failed to save \"{name}\" collection definition after 10 tries - is the file in use by something else?: {error}" );
 
 				error = FileController.SaveCollectionDefinition( newCollection );
-
-				if ( string.IsNullOrEmpty(error) )
-					break;
+				if ( string.IsNullOrEmpty(error) ) break;
 			}
 		}
 	}

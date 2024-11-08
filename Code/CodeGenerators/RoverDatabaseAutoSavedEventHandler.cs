@@ -59,7 +59,7 @@ public static class RoverDatabaseAutoSavedEventHandler
 					p.Attributes.First( x => x.GetType().ToString() == "RoverDB.Attributes.AutoSavedAttribute" ),
 					"CollectionName" );
 
-				RoverDatabase.Insert( collectionName, p.Object, p.Object.GetType() );
+				RoverDatabase.Insert( collectionName, p.Object );
 			}
 			finally
 			{
