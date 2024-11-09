@@ -12,9 +12,11 @@ public sealed partial class RoverDatabase : Singleton<RoverDatabase>
 
 	protected override async Task OnLoad()
 	{
+		Log.Info("Initializing database...");
+		
 		if ( !Networking.IsHost && !Config.ClientsCanUse )
 		{
-			Log.Error( "only the host can initialise the database - set CLIENTS_CAN_USE to true in Config.cs" +
+			Log.Error( "only the host can initialize the database - set CLIENTS_CAN_USE to true in Config.cs" +
 			           " if you want clients to be able to use the database too" );
 			return;
 		}

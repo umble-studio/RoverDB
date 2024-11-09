@@ -115,23 +115,25 @@ internal partial class FileController
 					.Where( x => x is not "definition.txt" )
 					.ToList();
 
-				foreach ( var file in files )
+				foreach ( var fileName in files )
 				{
 					var contents =
-						_provider.ReadAllText( $"{Config.DatabaseName}/{collection.CollectionName}/{file}" );
+						_provider.ReadAllText( $"{Config.DatabaseName}/{collection.CollectionName}/{fileName}" );
 
 					try
 					{
-						Log.Info( "Deserializing " + string.Join( ", ", file, collection.DocumentClassType ) );
+						Log.Info( "Deserializing " + string.Join( ", ", fileName, collection.DocumentClassType ) );
 
 						var document = new Document(
 							SerializationHelper.Deserialize( contents, collection.DocumentClassType ),
 							collection.CollectionName );
 
-						if ( file != document.DocumentId )
+						var fileNameGuid = Guid.Parse( fileName );
+						
+						if ( fileNameGuid != document.DocumentId )
 						{
 							Log.Error(
-								$"failed loading document \"{file}\": the filename does not match the UID ({file} vs {document.DocumentId}) - see RepairGuide.txt" );
+								$"failed loading document \"{fileName}\": the filename does not match the UID ({fileName} vs {document.DocumentId}) - see RepairGuide.txt" );
 							return output;
 						}
 
@@ -139,7 +141,7 @@ internal partial class FileController
 					}
 					catch ( Exception e )
 					{
-						Log.Error( $"failed loading document \"{file}\" - your JSON is probably invalid: " +
+						Log.Error( $"failed loading document \"{fileName}\" - your JSON is probably invalid: " +
 						           e.StackTrace );
 						return output;
 					}

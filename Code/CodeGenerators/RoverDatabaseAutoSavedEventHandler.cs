@@ -11,10 +11,10 @@ public static class RoverDatabaseAutoSavedEventHandler
 	private static readonly object _autoSaveLock = new();
 	private static object? _objectBeingAutoSaved;
 
-	public static void WipeStaticFields()
-	{
-		_objectBeingAutoSaved = null;
-	}
+	// public static void WipeStaticFields()
+	// {
+	// 	_objectBeingAutoSaved = null;
+	// }
 
 	public static void AutoSave<T>( WrappedPropertySet<T> p )
 	{
