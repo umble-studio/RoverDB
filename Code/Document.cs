@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using RoverDB.Attributes;
 using RoverDB.Exceptions;
 using RoverDB.Extensions;
@@ -14,9 +15,9 @@ public sealed class Document
 {
 	private readonly object _writeLock = new();
 
+	[Id, Saved, JsonPropertyName("__id")] public Guid DocumentId { get; set; }
+	[Saved, JsonPropertyName("__type")] public string DocumentTypeSerialized { get; set; } = null!;
 	[Saved] public string CollectionName { get; set; } = null!;
-	[Id, Saved] public Guid DocumentId { get; set; }
-	[Saved] public string DocumentTypeSerialized { get; set; } = null!;
 	[Saved] public object Data { get; set; } = null!;
 
 	public Document()

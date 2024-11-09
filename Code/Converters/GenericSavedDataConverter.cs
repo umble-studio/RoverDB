@@ -30,9 +30,16 @@ public class GenericSavedDataConverter : JsonConverter<object>
 
 			var propertyName = reader.GetString();
 
-			var property = properties.FirstOrDefault( prop =>
-				string.Equals( prop.Name, propertyName, StringComparison.OrdinalIgnoreCase ) );
+			var property = properties.FirstOrDefault(prop =>
+			{
+				var jsonPropertyName = prop.Attributes
+					.OfType<JsonPropertyNameAttribute>()
+					.FirstOrDefault()?.Name;
 
+				// Compare with JsonPropertyName if set, else with property name
+				return string.Equals(jsonPropertyName ?? prop.Name, propertyName, StringComparison.OrdinalIgnoreCase);
+			});
+			
 			if ( property is not null )
 			{
 				reader.Read();
@@ -58,7 +65,11 @@ public class GenericSavedDataConverter : JsonConverter<object>
 
 		foreach ( var prop in properties )
 		{
-			writer.WritePropertyName( prop.Name );
+			var jsonPropertyName = prop.Attributes
+				.OfType<JsonPropertyNameAttribute>()
+				.FirstOrDefault()?.Name;
+
+			writer.WritePropertyName(jsonPropertyName ?? prop.Name);
 			JsonSerializer.Serialize( writer, prop.GetValue( value ), prop.PropertyType );
 		}
 
