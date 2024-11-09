@@ -93,12 +93,12 @@ public partial class RoverDatabase
 
 		foreach ( var pair in relevantCollection.Documents )
 		{
-			// If the current document is not of the correct type, ignore it.
-
 			Log.Info( "Pair: " + string.Join( ", ", pair.Value.Data.GetType(), typeof(T) ) );
-
-			// if ( pair.Value.Data.GetType() != typeof(T) )
-			// 	continue;
+			
+			// Collection can have multiple types of documents in it
+			// Ignore documents that are not of type T
+			if ( pair.Value.Data.GetType() != typeof(T) )
+				continue;
 
 			if ( selector is null || selector.Invoke( (T)pair.Value.Data ) )
 			{
