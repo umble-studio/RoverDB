@@ -73,8 +73,8 @@ public partial class RoverDatabase
 
 				var collection = new Collection( collectionName );
 				collection.Load();
-
-				_collections.Add( collectionName, collection );
+				
+				_collections[collectionName] = collection;
 			}
 		}
 	}
