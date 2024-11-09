@@ -14,9 +14,10 @@ public partial class RoverDatabase
 
 	private Collection CreateCollection( string name )
 	{
-		var collection = new Collection( name );
+		var collection = new Collection { Name = name };
+		collection.SaveDefinition();
+		
 		_collections[name] = collection;
-
 		return collection;
 	}
 }

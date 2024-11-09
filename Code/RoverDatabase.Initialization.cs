@@ -71,9 +71,9 @@ public partial class RoverDatabase
 			{
 				Log.Info( $"attempting to load collection \"{collectionName}\"" );
 
-				var collection = new Collection( collectionName );
+				var collection = new Collection { Name = collectionName };
 				collection.Load();
-				
+
 				_collections[collectionName] = collection;
 			}
 		}

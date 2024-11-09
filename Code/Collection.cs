@@ -16,17 +16,7 @@ internal sealed class Collection
 	private readonly object _writeLocks = new();
 	public readonly ConcurrentDictionary<Guid, Document> Documents = new();
 
-	[Saved, JsonPropertyName("__name")] public string Name { get; init; } = null!;
-
-	public Collection()
-	{
-	}
-
-	public Collection( string name )
-	{
-		Name = name;
-		SaveDefinition();
-	}
+	[Saved, JsonPropertyName("__name")] public required string Name { get; init; } = null!;
 
 	public bool Load()
 	{
@@ -135,7 +125,7 @@ internal sealed class Collection
 	/// <summary>
 	/// Returns null on success, or the error message on failure.
 	/// </summary>
-	private void SaveDefinition()
+	public void SaveDefinition()
 	{
 		try
 		{
