@@ -19,9 +19,8 @@ public partial class RoverDatabase
 			var relevantCollection = GetCollectionByName( collectionAttr.Name )
 			                         ?? CreateCollection( collectionAttr.Name );
 
-			var newDocument = new Document( document ) { CollectionName = collectionAttr.Name };
+			var newDocument = new Document() { Data = document, CollectionName = collectionAttr.Name };
 			relevantCollection.InsertDocument( newDocument );
-
 			return true;
 		}
 		catch ( Exception ex )
@@ -44,7 +43,7 @@ public partial class RoverDatabase
 
 			foreach ( var document in documents )
 			{
-				var newDocument = new Document( document ) { CollectionName = collectionAttr.Name };
+				var newDocument = new Document() { Data = document, CollectionName = collectionAttr.Name };
 				relevantCollection.InsertDocument( newDocument );
 			}
 

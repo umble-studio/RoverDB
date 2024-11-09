@@ -26,18 +26,13 @@ internal sealed class Document
 	/// </summary>
 	internal string CollectionName { get; set; } = null!;
 
-	public Document()
+	public void Initialize()
 	{
-	}
-
-	public Document( object data )
-	{
-		var documentType = data.GetType();
+		var documentType = Data.GetType();
 
 		if ( !CollectionAttributeHelper.TryGetAttribute( documentType, out _ ) )
 			throw new RoverDatabaseException( $"Type {documentType.FullName} is not a collection" );
 		
-		Data = data;
 		DocumentTypeSerialized = documentType.FullName!;
 
 		if ( DocumentId != Guid.Empty ) return;

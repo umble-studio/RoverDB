@@ -195,6 +195,7 @@ internal sealed class Collection
 
 	public void InsertDocument( Document document )
 	{
+		document.Initialize();
 		Documents[document.DocumentId] = document;
 		document.SaveDocument();
 	}
