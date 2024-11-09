@@ -13,8 +13,8 @@ public partial class RoverDatabase
 
 			while ( Game.IsPlaying || TestHelpers.IsUnitTests )
 			{
-				foreach ( var (_, collection) in _collections )
-					collection.Save();
+				// foreach ( var (_, collection) in _collections )
+				// 	collection.Save();
 
 				await GameTask.DelaySeconds( Config.SaveInterval );
 			}
