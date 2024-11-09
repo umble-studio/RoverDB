@@ -28,7 +28,7 @@ public static class Config
 	/// Indentation makes them more human-readable, but probably makes saving
 	/// to disk a little bit slower.
 	/// </summary>
-	public static bool IndentJson = false;
+	public static bool IndentJson = true;
 
 	/// <summary>
 	/// The database will try to make sure that all stale data is written to disk

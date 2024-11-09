@@ -10,7 +10,7 @@ internal static class SerializationHelper
 	public static readonly JsonSerializerOptions _jsonOptions = new()
 	{
 		ReadCommentHandling = JsonCommentHandling.Skip,
-		WriteIndented = false,
+		WriteIndented = Config.IndentJson,
 		Converters = { new GenericSavedDataConverter() }
 	};
 
