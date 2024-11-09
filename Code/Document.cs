@@ -11,29 +11,34 @@ using Sandbox;
 
 namespace RoverDB;
 
-public sealed class Document
+internal sealed class Document
 {
 	private readonly object _writeLock = new();
 
-	[Id, Saved, JsonPropertyName("__id")] public Guid DocumentId { get; set; }
-	[Saved, JsonPropertyName("__type")] public string DocumentTypeSerialized { get; set; } = null!;
-	[Saved] public string CollectionName { get; set; } = null!;
-	[Saved] public object Data { get; set; } = null!;
+	[Id, Saved, JsonPropertyName( "__id" )]
+	public Guid DocumentId { get; set; }
+
+	[Saved, JsonPropertyName( "__type" )] public string DocumentTypeSerialized { get; set; } = null!;
+	[Saved, JsonPropertyName( "__data" )] public object Data { get; set; } = null!;
+
+	/// <summary>
+	/// Inject the collection name internally after the document as been created / loaded
+	/// </summary>
+	internal string CollectionName { get; set; } = null!;
 
 	public Document()
 	{
 	}
 
-	public Document( object data, string collectionName )
+	public Document( object data )
 	{
 		var documentType = data.GetType();
 
-		Data = data;
-		DocumentTypeSerialized = documentType.FullName!;
-		CollectionName = collectionName;
-
 		if ( !CollectionAttributeHelper.TryGetAttribute( documentType, out _ ) )
 			throw new RoverDatabaseException( $"Type {documentType.FullName} is not a collection" );
+		
+		Data = data;
+		DocumentTypeSerialized = documentType.FullName!;
 
 		if ( DocumentId != Guid.Empty ) return;
 		DocumentId = Guid.NewGuid();

@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using RoverDB.Attributes;
 using RoverDB.Helpers;
 using Sandbox;
@@ -10,12 +11,12 @@ using Sandbox.Internal;
 
 namespace RoverDB;
 
-public sealed class Collection
+internal sealed class Collection
 {
 	private readonly object _writeLocks = new();
 	public readonly ConcurrentDictionary<Guid, Document> Documents = new();
 
-	[Saved] public string Name { get; init; } = null!;
+	[Saved, JsonPropertyName("__name")] public string Name { get; init; } = null!;
 
 	public Collection()
 	{
@@ -99,6 +100,8 @@ public sealed class Collection
 					{
 						var document = SerializationHelper.Deserialize<Document>( contents );
 						if ( document is null ) return;
+
+						document.CollectionName = Name;
 
 						// By default, the document data is a JsonElement. So we need to convert it to the correct type.
 						var type = GlobalGameNamespace.TypeLibrary.GetType( document.DocumentTypeSerialized );

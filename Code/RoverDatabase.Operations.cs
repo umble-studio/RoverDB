@@ -19,7 +19,7 @@ public partial class RoverDatabase
 			var relevantCollection = GetCollectionByName( collectionAttr.Name )
 			                         ?? CreateCollection( collectionAttr.Name );
 
-			var newDocument = new Document( document, collectionAttr.Name );
+			var newDocument = new Document( document ) { CollectionName = collectionAttr.Name };
 			relevantCollection.InsertDocument( newDocument );
 
 			return true;
@@ -44,7 +44,7 @@ public partial class RoverDatabase
 
 			foreach ( var document in documents )
 			{
-				var newDocument = new Document( document, collectionAttr.Name );
+				var newDocument = new Document( document ) { CollectionName = collectionAttr.Name };
 				relevantCollection.InsertDocument( newDocument );
 			}
 
@@ -94,7 +94,7 @@ public partial class RoverDatabase
 		foreach ( var pair in relevantCollection.Documents )
 		{
 			Log.Info( "Pair: " + string.Join( ", ", pair.Value.Data.GetType(), typeof(T) ) );
-			
+
 			// Collection can have multiple types of documents in it
 			// Ignore documents that are not of type T
 			if ( pair.Value.Data.GetType() != typeof(T) )
