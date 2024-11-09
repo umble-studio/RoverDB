@@ -86,19 +86,4 @@ public static class Config
 	/// the renamed data.
 	/// </summary>
 	public static bool MERGE_JSON = true;
-	/// <summary>
-	/// Enabling this option will obfuscate files stored on the local filesystem, making them (almost) impossible
-	/// to edit. This is useful if you want to store data on the client that you don't want them to be able to
-	/// change easily.
-	/// <br/><br/>
-	/// Note that this is not secure. If someone really wanted to, they could reverse-engineer the data and change
-	/// it to whatever they want. However most people will not have the skills or inclination to do this.
-	/// <br/><br/>
-	/// Note that this will cause saving and loading files to become a bit slower and more CPU intensive.
-	/// <br/><br/>
-	/// The database will work whether this is enabled or not, regardless of whether some or all of the files are
-	/// obfuscated. Files are only obfuscated/unobfuscated when they are saved, so changing this will have no impact
-	/// on files until those files are re-saved.
-	/// </summary>
-	public static bool OBFUSCATE_FILES = false;
 }

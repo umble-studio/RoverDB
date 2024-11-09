@@ -20,6 +20,13 @@ internal class FileController
 
 	private IFileIOProvider _provider = null!;
 
+	public Cache.Cache Cache { get; }
+
+	public FileController()
+	{
+		Cache = new Cache.Cache( this );
+	}
+
 	public void Initialise()
 	{
 		// Don't re-create if it already exists. Otherwise in the unit tests we
@@ -56,7 +63,7 @@ internal class FileController
 		}
 		catch ( Exception e )
 		{
-			Log.Info("failed to delete document: " + e.Message);
+			Log.Info( "failed to delete document: " + e.Message );
 			return false;
 		}
 	}
@@ -78,9 +85,6 @@ internal class FileController
 			var data = Config.MERGE_JSON
 				? _provider.ReadAllText( $"{Config.DATABASE_NAME}/{document.CollectionName}/{document.DocumentId}" )
 				: null;
-
-			if ( data?[0] is 'O' )
-				data = Obfuscation.UnobfuscateFileText( data );
 
 			if ( Config.MERGE_JSON && data is not null )
 			{
@@ -138,9 +142,6 @@ internal class FileController
 				// If no file exists for this record then we can just serialise the class directly.
 				output = SerializationHelper.Serialize( document.Data, document.DocumentType );
 			}
-
-			if ( Config.OBFUSCATE_FILES )
-				output = Obfuscation.ObfuscateFileText( output );
 
 			lock ( _collectionWriteLocks[document.CollectionName] )
 			{
@@ -261,13 +262,10 @@ internal class FileController
 					var contents =
 						_provider.ReadAllText( $"{Config.DATABASE_NAME}/{collection.CollectionName}/{file}" );
 
-					if ( contents[0] is 'O' )
-						contents = Obfuscation.UnobfuscateFileText( contents );
-
 					try
 					{
-						Log.Info("Deserializing " + string.Join(", ", file, collection.DocumentClassType));
-						
+						Log.Info( "Deserializing " + string.Join( ", ", file, collection.DocumentClassType ) );
+
 						var document = new Document(
 							SerializationHelper.Deserialize( contents, collection.DocumentClassType ),
 							false,
@@ -363,7 +361,7 @@ internal class FileController
 			}
 
 			// Don't delete collection folders when we are half-way through writing to them.
-			lock ( Cache.Cache.WriteInProgressLock )
+			lock ( Cache.WriteInProgressLock )
 			{
 				foreach ( var collection in collections )
 				{

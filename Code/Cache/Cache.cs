@@ -9,29 +9,36 @@ using Sandbox;
 
 namespace RoverDB.Cache;
 
-internal static class Cache
+internal class Cache
 {
+	private readonly FileController _fileController;
+
 	/// <summary>
 	/// Indicates that a full or partial write to disk is in progress.
 	/// </summary>
-	public static readonly object WriteInProgressLock = new();
+	public readonly object WriteInProgressLock = new();
 
 	/// <summary>
 	/// All the stale documents.
 	/// </summary>
-	public static ConcurrentBag<Document> StaleDocuments = new();
+	public ConcurrentBag<Document> StaleDocuments = new();
 
-	private static readonly ConcurrentDictionary<string, Collection> _collections = new();
-	private static float _timeSinceLastFullWrite = 0;
-	private static readonly object _timeSinceLastFullWriteLock = new();
-	private static int _staleDocumentsFoundAfterLastFullWrite;
-	private static int _staleDocumentsWrittenSinceLastFullWrite;
-	private static float _partialWriteInterval = 1f / Config.PARTIAL_WRITES_PER_SECOND;
-	private static TimeSince _timeSinceLastPartialWrite = 0;
-	private static readonly object _collectionCreationLock = new();
-	private static bool _cacheWriteEnabled = true;
+	private readonly ConcurrentDictionary<string, Collection> _collections = new();
+	private float _timeSinceLastFullWrite = 0;
+	private readonly object _timeSinceLastFullWriteLock = new();
+	private int _staleDocumentsFoundAfterLastFullWrite;
+	private int _staleDocumentsWrittenSinceLastFullWrite;
+	private float _partialWriteInterval = 1f / Config.PARTIAL_WRITES_PER_SECOND;
+	private TimeSince _timeSinceLastPartialWrite = 0;
+	private readonly object _collectionCreationLock = new();
+	private bool _cacheWriteEnabled = true;
 
-	public static int GetDocumentsAwaitingWriteCount()
+	public Cache( FileController fileController )
+	{
+		_fileController = fileController;
+	}
+
+	public int GetDocumentsAwaitingWriteCount()
 	{
 		return StaleDocuments.Count;
 	}
@@ -41,7 +48,7 @@ internal static class Cache
 	/// 
 	/// A bit crude and doesn't wipe everything.
 	/// </summary>
-	public static void WipeCaches()
+	public void WipeCaches()
 	{
 		if ( !TestHelpers.IsUnitTests )
 			throw new Exception( "this can only be called during tests" );
@@ -55,7 +62,7 @@ internal static class Cache
 	/// <summary>
 	/// Used in the tests when we want to do writing to disk manually.
 	/// </summary>
-	public static void DisableCacheWriting()
+	public void DisableCacheWriting()
 	{
 		if ( !TestHelpers.IsUnitTests )
 			throw new Exception( "this can only be called during tests" );
@@ -63,7 +70,7 @@ internal static class Cache
 		_cacheWriteEnabled = false;
 	}
 
-	public static void WipeStaticFields()
+	public void WipeFields()
 	{
 		lock ( WriteInProgressLock )
 		{
@@ -77,30 +84,32 @@ internal static class Cache
 		}
 	}
 
-	public static Collection? GetCollectionByName<T>( string name, bool createIfDoesntExist )
+	public Collection? GetCollectionByName<T>( string name, bool createIfDoesntExist )
 	{
 		return GetCollectionByName( name, createIfDoesntExist, typeof(T) );
 	}
 
-	public static Collection? GetCollectionByName( string name, bool createIfDoesntExist, Type documentType )
+	public Collection? GetCollectionByName( string name, bool createIfDoesntExist, Type documentType )
 	{
-		if ( !_collections.ContainsKey( name ) )
+		if ( _collections.TryGetValue(name, out var collection) )
+			return collection;
+
+		if ( createIfDoesntExist )
 		{
-			if ( createIfDoesntExist )
-			{
-				Log.Info( $"creating new collection \"{name}\"" );
-				CreateCollection( name, documentType );
-			}
-			else
-			{
+			Log.Info( $"creating new collection \"{name}\"" );
+			
+			if ( !CreateCollection( name, documentType ) )
 				return null;
-			}
+		}
+		else
+		{
+			return null;
 		}
 
 		return _collections[name];
 	}
 
-	private static float GetTimeSinceLastFullWrite()
+	private float GetTimeSinceLastFullWrite()
 	{
 		lock ( _timeSinceLastFullWriteLock )
 		{
@@ -108,7 +117,7 @@ internal static class Cache
 		}
 	}
 
-	private static void ResetTimeSinceLastFullWrite()
+	private void ResetTimeSinceLastFullWrite()
 	{
 		lock ( _timeSinceLastFullWriteLock )
 		{
@@ -116,7 +125,7 @@ internal static class Cache
 		}
 	}
 
-	public static bool CreateCollection( string name, Type documentClassType )
+	public bool CreateCollection( string name, Type documentClassType )
 	{
 		// Only allow one thread to create a collection at once or this will
 		// be madness.
@@ -136,22 +145,22 @@ internal static class Cache
 				DocumentClassTypeSerialized = documentClassType.FullName!
 			};
 
-			FileController.CreateCollectionLock( name );
+			_fileController.CreateCollectionLock( name );
 			_collections[name] = newCollection;
 
-			return FileController.SaveCollectionDefinition( newCollection );
+			return _fileController.SaveCollectionDefinition( newCollection );
 		}
 	}
 
-	public static void InsertDocumentsIntoCollection( string collection, List<Document> documents )
+	public void InsertDocumentsIntoCollection( string collection, List<Document> documents )
 	{
 		foreach ( var document in documents )
 			_collections[collection].CachedDocuments[document.DocumentId] = document;
 	}
 
-	public static void Tick()
+	public void Tick()
 	{
-		if ( Initialization.CurrentDatabaseState is not DatabaseState.Initialised || !_cacheWriteEnabled )
+		if ( RoverDatabase.Instance.State is not DatabaseState.Initialised || !_cacheWriteEnabled )
 			return;
 
 		GameTask.RunInThreadAsync( () =>
@@ -183,7 +192,7 @@ internal static class Cache
 	/// <summary>
 	/// Force the cache to perform a full-write of all stale entries.
 	/// </summary>
-	public static void ForceFullWrite()
+	public void ForceFullWrite()
 	{
 		lock ( WriteInProgressLock )
 		{
@@ -199,7 +208,7 @@ internal static class Cache
 	/// <summary>
 	/// Figure out how many documents we should write for our next partial write.
 	/// </summary>
-	private static int GetNumberOfDocumentsToWrite()
+	private int GetNumberOfDocumentsToWrite()
 	{
 		var progressToNextWrite = GetTimeSinceLastFullWrite() / Config.PERSIST_EVERY_N_SECONDS;
 		var documentsWeShouldHaveWrittenByNow = (int)(_staleDocumentsFoundAfterLastFullWrite * progressToNextWrite);
@@ -212,7 +221,7 @@ internal static class Cache
 	/// Write some (but probably not all) of the stale documents to disk. The longer
 	/// it's been since our last partial write, the more documents we will write.
 	/// </summary>
-	private static void PartialWrite()
+	private void PartialWrite()
 	{
 		try
 		{
@@ -238,7 +247,7 @@ internal static class Cache
 	/// Perform a full-write to (maybe) guarantee we meet our write deadline target.
 	/// Also, re-evaluate cache to determine what is now stale.
 	/// </summary>
-	private static void FullWrite()
+	private void FullWrite()
 	{
 		try
 		{
@@ -260,7 +269,7 @@ internal static class Cache
 	/// Persist some of the stale documents to disk. We generally don't want to persist
 	/// them all at once, as this can cause lag spikes.
 	/// </summary>
-	private static void PersistStaleDocuments( int numberToWrite = int.MaxValue )
+	private void PersistStaleDocuments( int numberToWrite = int.MaxValue )
 	{
 		var remainingDocumentCount = _staleDocumentsFoundAfterLastFullWrite - _staleDocumentsWrittenSinceLastFullWrite;
 
@@ -302,16 +311,16 @@ internal static class Cache
 	/// <summary>
 	/// Returns true on success, false otherwise.
 	/// </summary>
-	private static bool PersistDocumentToDisk( Document document )
+	private bool PersistDocumentToDisk( Document document )
 	{
-		var saved = FileController.SaveDocument( document );
+		var saved = _fileController.SaveDocument( document );
 
 		if ( saved )
 			return true;
 
 		Log.Error(
 			$"failed to persist document \"{document.DocumentId}\" from collection \"{document.CollectionName}\" to disk" );
-		
+
 		return false;
 	}
 
@@ -319,7 +328,7 @@ internal static class Cache
 	/// Re-examine the cache and figure out what's stale and so what needs writing to
 	/// disk.
 	/// </summary>
-	private static void ReevaluateStaleDocuments()
+	private void ReevaluateStaleDocuments()
 	{
 		// Log.Info( "re-evaluating stale documents..." );
 

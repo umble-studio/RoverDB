@@ -12,7 +12,7 @@ internal sealed class Document
 {
 	public readonly Type DocumentType;
 	public readonly string CollectionName;
-	
+
 	/// <summary>
 	/// This is also stored embedded in the Data object, but we keep it
 	/// here as an easily-accessible copy for convenience. We call it UID instead
@@ -32,14 +32,14 @@ internal sealed class Document
 	public Document( object data, bool needsCloning, string collectionName )
 	{
 		var documentType = GlobalGameNamespace.TypeLibrary.GetType( data.GetType() );
-		
+
 		if ( !PropertyDescriptionsCache.DoesClassHaveUniqueIdProperty( documentType.FullName!, data ) )
 			throw new RoverDatabaseException(
 				"cannot handle a document without a property marked with a Id attribute - make sure your data class has a public property called UID, like this: \"[Saved] public string UID { get; set; }\"" );
 
 		if ( !CollectionAttributeHelper.TryGetAttribute( documentType, out _, out _ ) )
 			throw new RoverDatabaseException( $"Type {documentType.FullName} is not a collection" );
-		
+
 		// var id = (string)GlobalGameNamespace.TypeLibrary.GetPropertyValue( data, "UID" );
 		//
 		// if ( id is not null && id.Length > 0 )
@@ -92,6 +92,11 @@ internal sealed class Document
 			data = ObjectPool.CloneObject( data, documentType.TargetType );
 
 		Data = data;
-		Cache.Cache.StaleDocuments.Add( this );
+		// Cache.Cache.StaleDocuments.Add( this );
+	}
+
+	internal void Save( Cache.Cache cache )
+	{
+		cache.StaleDocuments.Add( this );
 	}
 }

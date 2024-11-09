@@ -30,7 +30,7 @@ public partial class RoverDatabase
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
 		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) ) return;
 
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, true );
+		var relevantCollection = _cache.GetCollectionByName<T>( collectionAttr.Name, true );
 
 		var newDocument = new Document( document, true, collectionAttr.Name );
 		relevantCollection.InsertDocument( newDocument );
@@ -46,7 +46,7 @@ public partial class RoverDatabase
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
-		var relevantCollection = Cache.Cache.GetCollectionByName( collection, true, document.GetType() );
+		var relevantCollection = _cache.GetCollectionByName( collection, true, document.GetType() );
 
 		var newDocument = new Document( document, true, collection );
 		relevantCollection.InsertDocument( newDocument );
@@ -67,7 +67,7 @@ public partial class RoverDatabase
 		if ( collectionAttr is null )
 			return;
 
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, true );
+		var relevantCollection = _cache.GetCollectionByName<T>( collectionAttr.Name, true );
 
 		foreach ( var document in documents )
 		{
@@ -89,7 +89,7 @@ public partial class RoverDatabase
 		if ( collectionAttr is null )
 			return null;
 
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+		var relevantCollection = _cache.GetCollectionByName<T>( collectionAttr.Name, false );
 
 		if ( relevantCollection is null )
 			return null;
@@ -122,7 +122,7 @@ public partial class RoverDatabase
 		if ( collectionAttr is null )
 			return output;
 
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+		var relevantCollection = _cache.GetCollectionByName<T>( collectionAttr.Name, false );
 
 		if ( relevantCollection is null )
 			return output;
@@ -180,7 +180,7 @@ public partial class RoverDatabase
 		if ( collectionAttr is null )
 			return output;
 
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+		var relevantCollection = _cache.GetCollectionByName<T>( collectionAttr.Name, false );
 
 		if ( relevantCollection is null )
 			return output;
@@ -208,7 +208,7 @@ public partial class RoverDatabase
 		if ( collectionAttr is null )
 			return;
 
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+		var relevantCollection = _cache.GetCollectionByName<T>( collectionAttr.Name, false );
 		if ( relevantCollection is null ) return;
 
 		var idsToDelete = new List<object>();
@@ -240,7 +240,7 @@ public partial class RoverDatabase
 		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) )
 			return false;
 
-		var relevantCollection = Cache.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+		var relevantCollection = _cache.GetCollectionByName<T>( collectionAttr.Name, false );
 
 		if ( relevantCollection is null )
 			return false;
@@ -275,7 +275,7 @@ public partial class RoverDatabase
 		if ( !IsInitialised )
 			InitializeAsync().GetAwaiter().GetResult();
 
-		Cache.Cache.WipeStaticFields();
+		// _fileController.Cache.WipeStaticFields();
 		_fileController.WipeFilesystem();
 	}
 }

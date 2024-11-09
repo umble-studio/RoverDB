@@ -5,9 +5,9 @@ using Sandbox;
 
 namespace RoverDB;
 
-internal static class Ticker
+public partial class RoverDatabase
 {
-	public static void Initialise()
+	internal void InitializeTicker()
 	{
 		GameTask.RunInThreadAsync( async () =>
 		{
@@ -15,7 +15,7 @@ internal static class Ticker
 
 			while( Game.IsPlaying || TestHelpers.IsUnitTests )
 			{
-				Cache.Cache.Tick();
+				_fileController.Cache.Tick();
 				ObjectPool.TryCheckPool();
 
 				await Task.Delay( Config.TICK_DELTA );

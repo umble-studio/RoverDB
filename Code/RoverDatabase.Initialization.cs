@@ -5,7 +5,7 @@ namespace RoverDB;
 
 public partial class RoverDatabase
 {
-	public DatabaseState State;
+	public DatabaseState State { get; private set; }
 
 	/// <summary>
 	/// Only let one thread initialse the database at once.
@@ -33,8 +33,9 @@ public partial class RoverDatabase
 			{
 				_fileController.Initialise();
 				_fileController.EnsureFileSystemSetup();
+				
 				LoadCollections();
-				Ticker.Initialise();
+				InitializeTicker();
 
 				State = DatabaseState.Initialised;
 
@@ -84,8 +85,8 @@ public partial class RoverDatabase
 
 		var documents = _fileController.LoadAllCollectionsDocuments( definition );
 
-		Cache.Cache.CreateCollection( name, definition.DocumentClassType );
-		Cache.Cache.InsertDocumentsIntoCollection( name, documents );
+		_cache.CreateCollection( name, definition.DocumentClassType );
+		_cache.InsertDocumentsIntoCollection( name, documents );
 
 		Log.Info( $"Loaded collection {name} with {documents.Count} documents" );
 		return true;
