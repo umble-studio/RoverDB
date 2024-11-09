@@ -1,6 +1,7 @@
 ﻿using System;
 using RoverDB.Attributes;
 using Sandbox;
+using Sandbox.Internal;
 
 namespace RoverDB.Helpers;
 
@@ -8,7 +9,7 @@ public static class CollectionAttributeHelper
 {
 	public static Type? GetCollectionType( this Type type )
 	{
-		var t = TypeLibrary.GetType( type );
+		var t = GlobalGameNamespace.TypeLibrary.GetType( type );
 		var collectionAttr = t.GetAttribute<CollectionAttribute>();
 
 		if ( collectionAttr is not null )
@@ -18,18 +19,20 @@ public static class CollectionAttributeHelper
 		return collectionAttr is not null ? t.BaseType.TargetType : null;
 	}
 
-	public static bool TryGetAttribute( TypeDescription type, out CollectionAttribute attribute )
+	public static bool TryGetAttribute( Type type, out CollectionAttribute attribute )
 	{
-		var t = type;
+		var t = GlobalGameNamespace.TypeLibrary.GetType( type );
+
+		Log.Info( "Type: " + t.Name );
 		var collectionAttr = t.GetAttribute<CollectionAttribute>();
 
-		if ( collectionAttr is null )
+		if ( collectionAttr is not null )
 		{
-			attribute = null!;
-			return false;
+			attribute = collectionAttr;
+			return true;
 		}
 
-		t = type.BaseType;
+		t = t.BaseType;
 
 		// Check if its ancestor have the collection attribute
 		collectionAttr = t.GetAttribute<CollectionAttribute>();
@@ -44,6 +47,6 @@ public static class CollectionAttributeHelper
 		Log.Error( $"Type {t.FullName} is not a collection" );
 
 		attribute = null!;
-		return true;
+		return false;
 	}
 }

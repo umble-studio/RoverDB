@@ -38,7 +38,7 @@ public static class RoverDatabaseAutoSavedEventHandler
 		}
 
 		var propertyValue = propertyId.GetValue( p.Object );
-		if ( propertyValue is null || string.IsNullOrEmpty( propertyValue?.ToString() ) ) return;
+		if ( string.IsNullOrEmpty( propertyValue?.ToString() ) ) return;
 
 		lock ( _autoSaveLock )
 		{
@@ -55,11 +55,13 @@ public static class RoverDatabaseAutoSavedEventHandler
 			{
 				_objectBeingAutoSaved = p.Object;
 
-				var collectionName = (string)GlobalGameNamespace.TypeLibrary.GetPropertyValue(
-					p.Attributes.First( x => x.GetType().ToString() == "RoverDB.Attributes.AutoSavedAttribute" ),
-					"CollectionName" );
+				// var collectionName = (string)GlobalGameNamespace.TypeLibrary.GetPropertyValue(
+				// 	p.Attributes.First( x => x.GetType().ToString() == "RoverDB.Attributes.AutoSavedAttribute" ),
+				// 	"CollectionName" );
+				//
+				// RoverDatabase.Instance.Insert( collectionName, p.Object );
 
-				RoverDatabase.Instance.Insert( collectionName, p.Object );
+				RoverDatabase.Instance.Insert( p.Object );
 			}
 			finally
 			{

@@ -32,7 +32,8 @@ public partial class RoverDatabase
 			try
 			{
 				_fileController.Initialize();
-				_fileController.EnsureFileSystemSetup();
+
+				if ( !_fileController.EnsureFileSystemSetup() ) return;
 
 				LoadCollections();
 				InitializeTicker();

@@ -29,11 +29,11 @@ internal sealed class Document
 	[Saved]
 	public object Data { get; private set; }
 
-	public Document( object data, bool needsCloning, string collectionName )
+	public Document( object data, string collectionName )
 	{
 		Data = data;
 
-		var documentType = GlobalGameNamespace.TypeLibrary.GetType( data.GetType() );
+		var documentType = data.GetType();
 
 		// if ( !PropertyDescriptionsCache.DoesClassHaveUniqueIdProperty( documentType.FullName!, data ) )
 		// 	throw new RoverDatabaseException(
@@ -85,7 +85,7 @@ internal sealed class Document
 		// 	GlobalGameNamespace.TypeLibrary.SetProperty( data, propertyId.Name, DocumentId );
 		// }
 
-		DocumentType = documentType.TargetType;
+		DocumentType = documentType;
 		CollectionName = collectionName;
 
 		// We want to avoid modifying a passed-in reference, so we clone it.
