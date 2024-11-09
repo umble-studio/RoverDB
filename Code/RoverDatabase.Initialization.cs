@@ -19,11 +19,11 @@ public partial class RoverDatabase
 			if ( State is not DatabaseState.Uninitialised )
 				return; // Probably another thread already did all this.
 
-			if ( !Config.MERGE_JSON )
+			if ( !Config.MergeJson )
 				Log.Warning(
 					"Config.MERGE_JSON is set to false - this will delete data if you rename or remove a data field" );
 
-			if ( Config.STARTUP_SHUTDOWN_MESSAGES )
+			if ( Config.StartupShutdownMessages )
 			{
 				Log.Info( "==================================" );
 				Log.Info( "Initializing RoverDatabase..." );
@@ -39,7 +39,7 @@ public partial class RoverDatabase
 
 				State = DatabaseState.Initialised;
 
-				if ( Config.STARTUP_SHUTDOWN_MESSAGES )
+				if ( Config.StartupShutdownMessages )
 				{
 					Log.Info( "RoverDatabase initialisation finished successfully" );
 					Log.Info( "==================================" );
@@ -49,7 +49,7 @@ public partial class RoverDatabase
 			{
 				Log.Error( $"failed to initialise database: {e.StackTrace}" );
 
-				if ( Config.STARTUP_SHUTDOWN_MESSAGES )
+				if ( Config.StartupShutdownMessages )
 				{
 					Log.Info( "RoverDatabase initialisation finished unsuccessfully" );
 					Log.Info( "==================================" );
@@ -85,8 +85,8 @@ public partial class RoverDatabase
 
 		var documents = _fileController.LoadAllCollectionsDocuments( definition );
 
-		_cache.CreateCollection( name, definition.DocumentClassType );
-		_cache.InsertDocumentsIntoCollection( name, documents );
+		_fileController.Cache.CreateCollection( name, definition.DocumentClassType );
+		_fileController.Cache.InsertDocumentsIntoCollection( name, documents );
 
 		Log.Info( $"Loaded collection {name} with {documents.Count} documents" );
 		return true;

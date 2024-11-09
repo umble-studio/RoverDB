@@ -6,20 +6,11 @@ using Sandbox.Internal;
 
 namespace RoverDB.Cache;
 
-/// <summary>
-/// When we clone objects via reflection, we do so based on the available properties on the
-/// class. We cache that information here, rather than deducing it on every clone.
-/// </summary>
-internal static class PropertyDescriptionsCache
+internal partial class Cache
 {
-	private static ConcurrentDictionary<string, PropertyDescription[]> _propertyDescriptionsCache = new();
+	private readonly ConcurrentDictionary<string, PropertyDescription[]> _propertyDescriptionsCache = new();
 
-	public static void WipeStaticFields()
-	{
-		_propertyDescriptionsCache = new ConcurrentDictionary<string, PropertyDescription[]>();
-	}
-
-	public static bool DoesClassHaveUniqueIdProperty( string classTypeName, object instance )
+	internal bool DoesClassHaveUniqueIdProperty( string classTypeName, object instance )
 	{
 		// If we have a record of it then it must do since we only cache valid types.
 		if ( _propertyDescriptionsCache.TryGetValue( classTypeName, out var properties ) )
@@ -32,7 +23,7 @@ internal static class PropertyDescriptionsCache
 	/// <summary>
 	/// Returns type information for all [Saved] and [AutoSaved] properties on this class instance.
 	/// </summary>
-	public static PropertyDescription[] GetPropertyDescriptionsForType( string classTypeName, object instance )
+	internal PropertyDescription[] GetPropertyDescriptionsForType( string classTypeName, object instance )
 	{
 		if ( _propertyDescriptionsCache.TryGetValue( classTypeName, out var properties ) )
 			return properties;

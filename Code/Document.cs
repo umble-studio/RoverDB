@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Linq;
 using RoverDB.Attributes;
-using RoverDB.Cache;
 using RoverDB.Exceptions;
 using RoverDB.Helpers;
+using RoverDB.IO;
 using Sandbox.Internal;
 
 namespace RoverDB;
@@ -31,11 +31,13 @@ internal sealed class Document
 
 	public Document( object data, bool needsCloning, string collectionName )
 	{
+		Data = data;
+
 		var documentType = GlobalGameNamespace.TypeLibrary.GetType( data.GetType() );
 
-		if ( !PropertyDescriptionsCache.DoesClassHaveUniqueIdProperty( documentType.FullName!, data ) )
-			throw new RoverDatabaseException(
-				"cannot handle a document without a property marked with a Id attribute - make sure your data class has a public property called UID, like this: \"[Saved] public string UID { get; set; }\"" );
+		// if ( !PropertyDescriptionsCache.DoesClassHaveUniqueIdProperty( documentType.FullName!, data ) )
+		// 	throw new RoverDatabaseException(
+		// 		"cannot handle a document without a property marked with a Id attribute - make sure your data class has a public property called UID, like this: \"[Saved] public string UID { get; set; }\"" );
 
 		if ( !CollectionAttributeHelper.TryGetAttribute( documentType, out _, out _ ) )
 			throw new RoverDatabaseException( $"Type {documentType.FullName} is not a collection" );
@@ -88,15 +90,18 @@ internal sealed class Document
 
 		// We want to avoid modifying a passed-in reference, so we clone it.
 		// But this is redundant in some cases, in which case we don't do it.
-		if ( needsCloning )
-			data = ObjectPool.CloneObject( data, documentType.TargetType );
-
-		Data = data;
+		// if ( needsCloning )
+		// 	data = ObjectPool.CloneObject( data, documentType.TargetType );
+		//
+		// Data = data;
 		// Cache.Cache.StaleDocuments.Add( this );
 	}
 
-	internal void Save( Cache.Cache cache )
+	internal void Save( FileController fileController )
 	{
-		cache.StaleDocuments.Add( this );
+		var documentType = GlobalGameNamespace.TypeLibrary.GetType( Data.GetType() );
+		
+		Data = fileController.Cache.Pool.CloneObject( Data, documentType.TargetType );
+		fileController.Cache.StaleDocuments.Add( this );
 	}
 }

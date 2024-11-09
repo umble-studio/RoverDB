@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using RoverDB.Exceptions;
+using RoverDB.Extensions;
 using RoverDB.Helpers;
 using Sandbox;
 using Sandbox.Internal;
@@ -11,32 +12,37 @@ namespace RoverDB.Cache;
 /// Provides class instances so that we don't need to create instances on-the-fly,
 /// which is a major performance bottleneck.
 /// </summary>
-internal static class ObjectPool
+internal class ObjectPool
 {
-	private static DateTime _timeLastCheckedPool;
-	private static ConcurrentDictionary<string, PoolTypeDefinition> _objectPool = new();
+	private readonly Cache _cache;
+	private DateTime _timeLastCheckedPool;
+	private readonly ConcurrentDictionary<string, PoolTypeDefinition> _objectPool = new();
 
-	public static void WipeStaticFields()
+	public ObjectPool( Cache cache )
 	{
-		_objectPool = new ConcurrentDictionary<string, PoolTypeDefinition>();
+		_cache = cache;
+	}
+
+	public void WipeFields()
+	{
 		_timeLastCheckedPool = DateTime.UtcNow.AddHours( -1 );
 	}
 
-	public static T CloneObject<T>( T theObject, string classTypeName )
+	public T CloneObject<T>( T theObject, string classTypeName )
 	{
 		var instance = GetInstance<T>( theObject.GetType() );
-		PropertyCloningHelper.CopyClassData( theObject, instance, classTypeName );
+		_cache.CopyClassData( theObject, instance, classTypeName );
 		return instance;
 	}
 
-	public static object CloneObject( object theObject, Type objectType )
+	public object CloneObject( object theObject, Type objectType )
 	{
 		var instance = GetInstance( objectType );
-		PropertyCloningHelper.CopyClassData( theObject, instance, objectType.FullName! );
+		_cache.CopyClassData( theObject, instance, objectType.FullName! );
 		return instance;
 	}
 
-	public static object GetInstance( Type classType )
+	public object GetInstance( Type classType )
 	{
 		var targetType = classType;
 
@@ -56,7 +62,7 @@ internal static class ObjectPool
 		return GlobalGameNamespace.TypeLibrary.Create<object>( targetType );
 	}
 
-	public static T GetInstance<T>( Type classType )
+	public T GetInstance<T>( Type classType )
 	{
 		// var baseClassType = classType;
 		var baseType = classType.GetCollectionType();
@@ -73,7 +79,7 @@ internal static class ObjectPool
 	/// <summary>
 	/// Tell the pool that we want to pool this class type.
 	/// </summary>
-	public static void TryRegisterType( Type classType )
+	public void TryRegisterType( Type classType )
 	{
 		classType = classType.GetCollectionType();
 		var classTypeName = classType.FullName!;
@@ -81,14 +87,14 @@ internal static class ObjectPool
 		// Different collections might use the same type. So this is possible.
 		if ( _objectPool.ContainsKey( classTypeName ) )
 			return;
-		
+
 		_objectPool[classTypeName] = new PoolTypeDefinition
 		{
 			ObjectType = classType, TypePool = new ConcurrentBag<object>()
 		};
 	}
 
-	public static void TryCheckPool()
+	public void TryCheckPool()
 	{
 		var now = DateTime.UtcNow;
 
@@ -99,22 +105,22 @@ internal static class ObjectPool
 
 		foreach ( var poolPair in _objectPool )
 		{
-			if ( Config.CLASS_INSTANCE_POOL_SIZE - poolPair.Value.TypePool.Count >=
-			     Config.CLASS_INSTANCE_POOL_SIZE / 2 )
+			if ( Config.ClassInstancePoolSize - poolPair.Value.TypePool.Count >=
+			     Config.ClassInstancePoolSize / 2 )
 			{
 				GameTask.RunInThreadAsync( () => ReplenishPoolType( poolPair.Key, poolPair.Value.ObjectType ) );
 			}
 		}
 	}
 
-	private static void ReplenishPoolType( string classTypeName, Type classType )
+	private void ReplenishPoolType( string classTypeName, Type classType )
 	{
 		var concurrentList = _objectPool[classTypeName].TypePool;
-		var instancesToCreate = Config.CLASS_INSTANCE_POOL_SIZE - concurrentList.Count;
+		var instancesToCreate = Config.ClassInstancePoolSize - concurrentList.Count;
 
-		Log.Info("Replenishing pool of type: " + classType);
+		Log.Info( "Replenishing pool of type: " + classType );
 		if ( classType.IsAbstract ) return;
-		
+
 		for ( var i = 0; i < instancesToCreate; i++ )
 		{
 			concurrentList.Add( GlobalGameNamespace.TypeLibrary.Create<object>( classType ) );

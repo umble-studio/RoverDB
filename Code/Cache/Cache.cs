@@ -9,7 +9,7 @@ using Sandbox;
 
 namespace RoverDB.Cache;
 
-internal class Cache
+internal partial class Cache
 {
 	private readonly FileController _fileController;
 
@@ -28,14 +28,17 @@ internal class Cache
 	private readonly object _timeSinceLastFullWriteLock = new();
 	private int _staleDocumentsFoundAfterLastFullWrite;
 	private int _staleDocumentsWrittenSinceLastFullWrite;
-	private float _partialWriteInterval = 1f / Config.PARTIAL_WRITES_PER_SECOND;
+	private float _partialWriteInterval = 1f / Config.PartialWritePerSecond;
 	private TimeSince _timeSinceLastPartialWrite = 0;
 	private readonly object _collectionCreationLock = new();
 	private bool _cacheWriteEnabled = true;
+	
+	public ObjectPool Pool { get; }
 
 	public Cache( FileController fileController )
 	{
 		_fileController = fileController;
+		Pool = new ObjectPool( this );
 	}
 
 	public int GetDocumentsAwaitingWriteCount()
@@ -56,7 +59,7 @@ internal class Cache
 		StaleDocuments = new ConcurrentBag<Document>();
 
 		foreach ( var collection in _collections )
-			collection.Value.CachedDocuments = new ConcurrentDictionary<object, Document>();
+			collection.Value.Documents = new ConcurrentDictionary<object, Document>();
 	}
 
 	/// <summary>
@@ -79,7 +82,7 @@ internal class Cache
 			_staleDocumentsFoundAfterLastFullWrite = 0;
 			_staleDocumentsWrittenSinceLastFullWrite = 0;
 			StaleDocuments.Clear();
-			_partialWriteInterval = 1f / Config.PARTIAL_WRITES_PER_SECOND;
+			_partialWriteInterval = 1f / Config.PartialWritePerSecond;
 			_timeSinceLastPartialWrite = 0;
 		}
 	}
@@ -91,13 +94,13 @@ internal class Cache
 
 	public Collection? GetCollectionByName( string name, bool createIfDoesntExist, Type documentType )
 	{
-		if ( _collections.TryGetValue(name, out var collection) )
+		if ( _collections.TryGetValue( name, out var collection ) )
 			return collection;
 
 		if ( createIfDoesntExist )
 		{
 			Log.Info( $"creating new collection \"{name}\"" );
-			
+
 			if ( !CreateCollection( name, documentType ) )
 				return null;
 		}
@@ -134,7 +137,7 @@ internal class Cache
 			if ( _collections.ContainsKey( name ) )
 				return false;
 
-			ObjectPool.TryRegisterType( documentClassType );
+			Pool.TryRegisterType( documentClassType );
 
 			documentClassType = documentClassType.GetCollectionType();
 
@@ -155,7 +158,7 @@ internal class Cache
 	public void InsertDocumentsIntoCollection( string collection, List<Document> documents )
 	{
 		foreach ( var document in documents )
-			_collections[collection].CachedDocuments[document.DocumentId] = document;
+			_collections[collection].Documents[document.DocumentId] = document;
 	}
 
 	public void Tick()
@@ -167,10 +170,10 @@ internal class Cache
 		{
 			lock ( _timeSinceLastFullWriteLock )
 			{
-				_timeSinceLastFullWrite += Config.TICK_DELTA;
+				_timeSinceLastFullWrite += Config.TickDelta;
 			}
 
-			if ( GetTimeSinceLastFullWrite() >= Config.PERSIST_EVERY_N_SECONDS )
+			if ( GetTimeSinceLastFullWrite() >= Config.PersistEverySeconds )
 			{
 				// Do this immediately otherwise when the server is stuttering it can spam
 				// full writes.
@@ -210,7 +213,7 @@ internal class Cache
 	/// </summary>
 	private int GetNumberOfDocumentsToWrite()
 	{
-		var progressToNextWrite = GetTimeSinceLastFullWrite() / Config.PERSIST_EVERY_N_SECONDS;
+		var progressToNextWrite = GetTimeSinceLastFullWrite() / Config.PersistEverySeconds;
 		var documentsWeShouldHaveWrittenByNow = (int)(_staleDocumentsFoundAfterLastFullWrite * progressToNextWrite);
 		var numberToWrite = documentsWeShouldHaveWrittenByNow - _staleDocumentsWrittenSinceLastFullWrite;
 

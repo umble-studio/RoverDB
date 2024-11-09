@@ -1,15 +1,14 @@
 ﻿using RoverDB.Attributes;
-using RoverDB.Cache;
 using Sandbox;
 
-namespace RoverDB.Helpers;
+namespace RoverDB.Extensions;
 
-internal static class PropertyCloningHelper
+internal static class CachePropertyExtensions
 {
-	public static void CopyClassData<T>( T sourceClass, T destinationClass )
+	public static void CopyClassData<T>( this Cache.Cache cache, T sourceClass, T destinationClass )
 	{
 		// This is probably not much faster since we still have to call GetType, but oh well.
-		var properties = PropertyDescriptionsCache.GetPropertyDescriptionsForType( sourceClass.GetType().FullName,
+		var properties = cache.GetPropertyDescriptionsForType( sourceClass.GetType().FullName,
 			sourceClass );
 
 		PropertyDescription? uidProperty = null;
@@ -32,9 +31,9 @@ internal static class PropertyCloningHelper
 		uidProperty?.SetValue( destinationClass, uidProperty.GetValue( sourceClass ) );
 	}
 
-	public static void CopyClassData( object sourceClass, object destinationClass, string classTypeName )
+	public static void CopyClassData( this Cache.Cache cache, object sourceClass, object destinationClass, string classTypeName )
 	{
-		var properties = PropertyDescriptionsCache.GetPropertyDescriptionsForType( sourceClass.GetType().FullName!, sourceClass );
+		var properties = cache.GetPropertyDescriptionsForType( sourceClass.GetType().FullName!, sourceClass );
 		// var properties = PropertyDescriptionsCache.GetPropertyDescriptionsForType( classTypeName, sourceClass );
 
 		PropertyDescription? uidProperty = null;

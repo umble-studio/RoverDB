@@ -57,7 +57,7 @@ internal class FileController
 		try
 		{
 			lock ( _collectionWriteLocks[collection] )
-				_provider.DeleteFile( $"{Config.DATABASE_NAME}/{collection}/{documentID}" );
+				_provider.DeleteFile( $"{Config.DatabaseName}/{collection}/{documentID}" );
 
 			return true;
 		}
@@ -82,16 +82,16 @@ internal class FileController
 			string output;
 
 			// Load document currently stored on disk, if there is one.
-			var data = Config.MERGE_JSON
-				? _provider.ReadAllText( $"{Config.DATABASE_NAME}/{document.CollectionName}/{document.DocumentId}" )
+			var data = Config.MergeJson
+				? _provider.ReadAllText( $"{Config.DatabaseName}/{document.CollectionName}/{document.DocumentId}" )
 				: null;
 
-			if ( Config.MERGE_JSON && data is not null )
+			if ( Config.MergeJson && data is not null )
 			{
 				var currentDocument = JsonDocument.Parse( data );
 
 				// Get data from the new document we want to save.
-				var saveableProperties = PropertyDescriptionsCache.GetPropertyDescriptionsForType(
+				var saveableProperties = Cache.GetPropertyDescriptionsForType(
 					document.Data.GetType().ToString(), document.Data
 				);
 
@@ -145,7 +145,7 @@ internal class FileController
 
 			lock ( _collectionWriteLocks[document.CollectionName] )
 			{
-				_provider.WriteAllText( $"{Config.DATABASE_NAME}/{document.CollectionName}/{document.DocumentId}",
+				_provider.WriteAllText( $"{Config.DatabaseName}/{document.CollectionName}/{document.DocumentId}",
 					output );
 			}
 
@@ -166,7 +166,7 @@ internal class FileController
 	{
 		try
 		{
-			return _provider.FindDirectory( Config.DATABASE_NAME ).ToList();
+			return _provider.FindDirectory( Config.DatabaseName ).ToList();
 		}
 		catch ( Exception e )
 		{
@@ -189,7 +189,7 @@ internal class FileController
 
 			lock ( _collectionWriteLocks[collectionName] )
 			{
-				data = _provider.ReadAllText( $"{Config.DATABASE_NAME}/{collectionName}/definition.txt" );
+				data = _provider.ReadAllText( $"{Config.DatabaseName}/{collectionName}/definition.txt" );
 			}
 
 			if ( string.IsNullOrEmpty( data ) )
@@ -253,14 +253,14 @@ internal class FileController
 		{
 			lock ( _collectionWriteLocks[collection.CollectionName] )
 			{
-				var files = _provider.FindFile( $"{Config.DATABASE_NAME}/{collection.CollectionName}/" )
+				var files = _provider.FindFile( $"{Config.DatabaseName}/{collection.CollectionName}/" )
 					.Where( x => x is not "definition.txt" )
 					.ToList();
 
 				foreach ( var file in files )
 				{
 					var contents =
-						_provider.ReadAllText( $"{Config.DATABASE_NAME}/{collection.CollectionName}/{file}" );
+						_provider.ReadAllText( $"{Config.DatabaseName}/{collection.CollectionName}/{file}" );
 
 					try
 					{
@@ -309,10 +309,10 @@ internal class FileController
 
 			lock ( _collectionWriteLocks[collection.CollectionName] )
 			{
-				if ( !_provider.DirectoryExists( $"{Config.DATABASE_NAME}/{collection.CollectionName}" ) )
-					_provider.CreateDirectory( $"{Config.DATABASE_NAME}/{collection.CollectionName}" );
+				if ( !_provider.DirectoryExists( $"{Config.DatabaseName}/{collection.CollectionName}" ) )
+					_provider.CreateDirectory( $"{Config.DatabaseName}/{collection.CollectionName}" );
 
-				_provider.WriteAllText( $"{Config.DATABASE_NAME}/{collection.CollectionName}/definition.txt", data );
+				_provider.WriteAllText( $"{Config.DatabaseName}/{collection.CollectionName}/definition.txt", data );
 			}
 
 			return true;
@@ -333,7 +333,7 @@ internal class FileController
 		{
 			lock ( _collectionWriteLocks[name] )
 			{
-				_provider.DeleteDirectory( $"{Config.DATABASE_NAME}/{name}", true );
+				_provider.DeleteDirectory( $"{Config.DatabaseName}/{name}", true );
 			}
 
 			return true;
@@ -390,8 +390,8 @@ internal class FileController
 	{
 		try
 		{
-			if ( !_provider.DirectoryExists( Config.DATABASE_NAME ) )
-				_provider.CreateDirectory( Config.DATABASE_NAME );
+			if ( !_provider.DirectoryExists( Config.DatabaseName ) )
+				_provider.CreateDirectory( Config.DatabaseName );
 
 			return true;
 		}

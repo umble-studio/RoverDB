@@ -20,7 +20,7 @@ internal sealed class Collection
 	/// <summary>
 	/// All the documents in this collection.
 	/// </summary>
-	public ConcurrentDictionary<object, Document> CachedDocuments = new();
+	public ConcurrentDictionary<object, Document> Documents = new();
 
 	/// <summary>
 	/// This should be used to insert documents since this enforces that the class type is
@@ -29,6 +29,12 @@ internal sealed class Collection
 	public void InsertDocument( Document document )
 	{
 		var documentType = document.Data.GetType().GetCollectionType();
+
+		if ( documentType is null )
+		{
+			Log.Error("failed to insert document because it doesn't have a collection attribute");
+			return;
+		}
 		
 		if ( documentType.ToString() != DocumentClassTypeSerialized )
 		{
@@ -36,6 +42,6 @@ internal sealed class Collection
 				$"into a collection which expects type {DocumentClassTypeSerialized}" );
 		}
 
-		CachedDocuments[document.DocumentId] = document;
+		Documents[document.DocumentId] = document;
 	}
 }

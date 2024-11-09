@@ -1,5 +1,4 @@
-﻿using System.Threading.Tasks;
-using RoverDB.Cache;
+﻿using RoverDB.Cache;
 using RoverDB.Testing;
 using Sandbox;
 
@@ -7,18 +6,18 @@ namespace RoverDB;
 
 public partial class RoverDatabase
 {
-	internal void InitializeTicker()
+	private void InitializeTicker()
 	{
 		GameTask.RunInThreadAsync( async () =>
 		{
-			Log.Info( "Initialising ticker..." );
+			Log.Info( "Initializing ticker..." );
 
 			while( Game.IsPlaying || TestHelpers.IsUnitTests )
 			{
 				_fileController.Cache.Tick();
-				ObjectPool.TryCheckPool();
+				_fileController.Cache.Pool.TryCheckPool();
 
-				await Task.Delay( Config.TICK_DELTA );
+				await Task.Delay( Config.TickDelta );
 			}
 		} );
 	}
