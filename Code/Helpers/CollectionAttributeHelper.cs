@@ -6,7 +6,7 @@ namespace RoverDB.Helpers;
 
 public static class CollectionAttributeHelper
 {
-	public static Type? GetCollectionType( this Type type )
+	public static Type GetCollectionType( this Type type )
 	{
 		var t = GlobalGameNamespace.TypeLibrary.GetType( type );
 		var collectionAttr = t.GetAttribute<CollectionAttribute>();
@@ -15,7 +15,7 @@ public static class CollectionAttributeHelper
 			return t.TargetType;
 
 		collectionAttr = t.BaseType.GetAttribute<CollectionAttribute>();
-		return collectionAttr is not null ? t.BaseType.TargetType : null;
+		return collectionAttr is not null ? t.BaseType.TargetType : t.TargetType;
 	}
 
 	public static bool TryGetAttribute( Type type, out CollectionAttribute attribute )
