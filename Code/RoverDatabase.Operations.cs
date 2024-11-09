@@ -18,20 +18,20 @@ public partial class RoverDatabase
 	{
 		_fileController.Cache.CopyClassData( sourceClass, destinationClass );
 	}
-	
-		/// <summary>
+
+	/// <summary>
 	/// Insert a document into the database. The document will have its ID set
 	/// if it is empty.
 	/// </summary>
 	public void Insert<T>( T document ) where T : class
 	{
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
-		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) ) return;
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out var collectionAttr ) ) return;
 
 		var relevantCollection = _fileController.Cache.GetCollectionByName<T>( collectionAttr.Name, true );
 
 		var newDocument = new Document( document, true, collectionAttr.Name );
-		relevantCollection.InsertDocument( newDocument );
+		relevantCollection.InsertDocument( _fileController, newDocument );
 	}
 
 	/// <summary>
@@ -44,7 +44,7 @@ public partial class RoverDatabase
 		var relevantCollection = _fileController.Cache.GetCollectionByName( collection, true, document.GetType() );
 
 		var newDocument = new Document( document, true, collection );
-		relevantCollection.InsertDocument( newDocument );
+		relevantCollection.InsertDocument( _fileController, newDocument );
 	}
 
 	/// <summary>
@@ -54,7 +54,7 @@ public partial class RoverDatabase
 	public void InsertMany<T>( IEnumerable<T> documents ) where T : class
 	{
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
-		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) ) return;
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out var collectionAttr ) ) return;
 
 		if ( collectionAttr is null )
 			return;
@@ -64,7 +64,7 @@ public partial class RoverDatabase
 		foreach ( var document in documents )
 		{
 			var newDocument = new Document( document, true, collectionAttr.Name );
-			relevantCollection.InsertDocument( newDocument );
+			relevantCollection.InsertDocument( _fileController, newDocument );
 		}
 	}
 
@@ -75,7 +75,7 @@ public partial class RoverDatabase
 	{
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
 
-		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) )
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out var collectionAttr ) )
 			return null;
 
 		if ( collectionAttr is null )
@@ -89,7 +89,8 @@ public partial class RoverDatabase
 		foreach ( var pair in relevantCollection.Documents )
 		{
 			if ( selector.Invoke( (T)pair.Value.Data ) )
-				return _fileController.Cache.Pool.CloneObject( (T)pair.Value.Data, relevantCollection.DocumentClassType.FullName );
+				return _fileController.Cache.Pool.CloneObject( (T)pair.Value.Data,
+					relevantCollection.DocumentClassType.FullName );
 		}
 
 		return null;
@@ -103,7 +104,7 @@ public partial class RoverDatabase
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
 		var output = new List<T>();
 
-		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) )
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out var collectionAttr ) )
 			return output;
 
 		if ( collectionAttr is null )
@@ -123,7 +124,8 @@ public partial class RoverDatabase
 			if ( selector is null || selector.Invoke( (T)pair.Value.Data ) )
 			{
 				output.Add(
-					_fileController.Cache.Pool.CloneObject( (T)pair.Value.Data, relevantCollection.DocumentClassType.FullName ) );
+					_fileController.Cache.Pool.CloneObject( (T)pair.Value.Data,
+						relevantCollection.DocumentClassType.FullName ) );
 			}
 		}
 
@@ -158,7 +160,7 @@ public partial class RoverDatabase
 		var output = new List<T>();
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
 
-		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) )
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out var collectionAttr ) )
 			return output;
 
 		if ( collectionAttr is null )
@@ -184,7 +186,7 @@ public partial class RoverDatabase
 	public void Delete<T>( Predicate<T> selector ) where T : class
 	{
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
-		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) ) return;
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out var collectionAttr ) ) return;
 
 		if ( collectionAttr is null )
 			return;
@@ -215,7 +217,7 @@ public partial class RoverDatabase
 	{
 		var type = GlobalGameNamespace.TypeLibrary.GetType<T>();
 
-		if ( !CollectionAttributeHelper.TryGetAttribute( type, out _, out var collectionAttr ) )
+		if ( !CollectionAttributeHelper.TryGetAttribute( type, out var collectionAttr ) )
 			return false;
 
 		var relevantCollection = _fileController.Cache.GetCollectionByName<T>( collectionAttr.Name, false );

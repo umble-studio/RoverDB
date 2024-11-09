@@ -23,11 +23,6 @@ internal class ObjectPool
 		_cache = cache;
 	}
 
-	public void WipeFields()
-	{
-		_timeLastCheckedPool = DateTime.UtcNow.AddHours( -1 );
-	}
-
 	public T CloneObject<T>( T theObject, string classTypeName )
 	{
 		var instance = GetInstance<T>( theObject.GetType() );

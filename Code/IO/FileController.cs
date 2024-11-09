@@ -27,19 +27,12 @@ internal class FileController
 		Cache = new Cache.Cache( this );
 	}
 
-	public void Initialise()
+	public void Initialize()
 	{
-		// Don't re-create if it already exists. Otherwise in the unit tests we
-		// lose all of the files after initialisation.
-		if ( _provider is null )
-		{
-			Log.Info( "recreating file IO provider..." );
-
-			if ( TestHelpers.IsUnitTests )
-				_provider = new MockFileIOProvider();
-			else
-				_provider = new FileIOProvider();
-		}
+		if ( TestHelpers.IsUnitTests )
+			_provider = new MockFileIOProvider();
+		else
+			_provider = new FileIOProvider();
 	}
 
 	public void CreateCollectionLock( string collection )

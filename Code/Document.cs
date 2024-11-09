@@ -39,7 +39,7 @@ internal sealed class Document
 		// 	throw new RoverDatabaseException(
 		// 		"cannot handle a document without a property marked with a Id attribute - make sure your data class has a public property called UID, like this: \"[Saved] public string UID { get; set; }\"" );
 
-		if ( !CollectionAttributeHelper.TryGetAttribute( documentType, out _, out _ ) )
+		if ( !CollectionAttributeHelper.TryGetAttribute( documentType, out _ ) )
 			throw new RoverDatabaseException( $"Type {documentType.FullName} is not a collection" );
 
 		// var id = (string)GlobalGameNamespace.TypeLibrary.GetPropertyValue( data, "UID" );

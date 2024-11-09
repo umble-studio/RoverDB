@@ -21,8 +21,4 @@ public sealed partial class RoverDatabase : Singleton<RoverDatabase>
 
 		await GameTask.RunInThreadAsync( Initialize );
 	}
-
-	public void Shutdown()
-	{
-	}
 }

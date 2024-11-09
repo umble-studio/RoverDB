@@ -73,20 +73,6 @@ internal partial class Cache
 		_cacheWriteEnabled = false;
 	}
 
-	public void WipeFields()
-	{
-		lock ( WriteInProgressLock )
-		{
-			_collections.Clear();
-			_timeSinceLastFullWrite = 0;
-			_staleDocumentsFoundAfterLastFullWrite = 0;
-			_staleDocumentsWrittenSinceLastFullWrite = 0;
-			StaleDocuments.Clear();
-			_partialWriteInterval = 1f / Config.PartialWritePerSecond;
-			_timeSinceLastPartialWrite = 0;
-		}
-	}
-
 	public Collection? GetCollectionByName<T>( string name, bool createIfDoesntExist )
 	{
 		return GetCollectionByName( name, createIfDoesntExist, typeof(T) );

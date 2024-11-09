@@ -31,9 +31,9 @@ public partial class RoverDatabase
 
 			try
 			{
-				_fileController.Initialise();
+				_fileController.Initialize();
 				_fileController.EnsureFileSystemSetup();
-				
+
 				LoadCollections();
 				InitializeTicker();
 
@@ -60,12 +60,15 @@ public partial class RoverDatabase
 
 	private void LoadCollections()
 	{
-		var collectionNames = _fileController.ListCollectionNames();
-
-		foreach ( var collectionName in collectionNames )
+		lock ( _initializationLock )
 		{
-			Log.Info( $"attempting to load collection \"{collectionName}\"" );
-			LoadCollection( collectionName );
+			var collectionNames = _fileController.ListCollectionNames();
+
+			foreach ( var collectionName in collectionNames )
+			{
+				Log.Info( $"attempting to load collection \"{collectionName}\"" );
+				LoadCollection( collectionName );
+			}
 		}
 	}
 
