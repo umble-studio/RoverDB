@@ -2,9 +2,9 @@
 using RoverDB.Cache;
 using Sandbox;
 
-namespace RoverDB;
+namespace RoverDB.Helpers;
 
-internal static class Cloning
+internal static class PropertyCloningHelper
 {
 	public static void CopyClassData<T>( T sourceClass, T destinationClass )
 	{
@@ -34,8 +34,6 @@ internal static class Cloning
 
 	public static void CopyClassData( object sourceClass, object destinationClass, string classTypeName )
 	{
-		Log.Info("CopyClassData: " + string.Join(", ", sourceClass, destinationClass, classTypeName, sourceClass.GetType().FullName));
-		
 		var properties = PropertyDescriptionsCache.GetPropertyDescriptionsForType( sourceClass.GetType().FullName!, sourceClass );
 		// var properties = PropertyDescriptionsCache.GetPropertyDescriptionsForType( classTypeName, sourceClass );
 

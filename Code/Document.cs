@@ -10,6 +10,9 @@ namespace RoverDB;
 
 internal sealed class Document
 {
+	public readonly Type DocumentType;
+	public readonly string CollectionName;
+	
 	/// <summary>
 	/// This is also stored embedded in the Data object, but we keep it
 	/// here as an easily-accessible copy for convenience. We call it UID instead
@@ -25,9 +28,6 @@ internal sealed class Document
 	/// </summary>
 	[Saved]
 	public object Data { get; private set; }
-
-	public readonly Type DocumentType;
-	public readonly string CollectionName;
 
 	public Document( object data, bool needsCloning, string collectionName )
 	{

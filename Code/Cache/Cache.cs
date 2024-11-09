@@ -9,7 +9,7 @@ using Sandbox;
 
 namespace RoverDB.Cache;
 
-static internal class Cache
+internal static class Cache
 {
 	/// <summary>
 	/// Indicates that a full or partial write to disk is in progress.
@@ -116,19 +116,19 @@ static internal class Cache
 		}
 	}
 
-	public static void CreateCollection( string name, Type documentClassType )
+	public static bool CreateCollection( string name, Type documentClassType )
 	{
 		// Only allow one thread to create a collection at once or this will
 		// be madness.
 		lock ( _collectionCreationLock )
 		{
-			if ( _collections.ContainsKey( name ) ) return;
-			
+			if ( _collections.ContainsKey( name ) )
+				return false;
+
 			ObjectPool.TryRegisterType( documentClassType );
 
 			documentClassType = documentClassType.GetCollectionType();
-			Log.Info("Document class type: " + documentClassType.FullName);
-			
+
 			var newCollection = new Collection()
 			{
 				CollectionName = name,
@@ -139,18 +139,7 @@ static internal class Cache
 			FileController.CreateCollectionLock( name );
 			_collections[name] = newCollection;
 
-			var attempt = 0;
-			var error = "";
-
-			while ( true )
-			{
-				if ( attempt++ >= 10 )
-					throw new RoverDatabaseException(
-						$"failed to save \"{name}\" collection definition after 10 tries - is the file in use by something else?: {error}" );
-
-				error = FileController.SaveCollectionDefinition( newCollection );
-				if ( string.IsNullOrEmpty(error) ) break;
-			}
+			return FileController.SaveCollectionDefinition( newCollection );
 		}
 	}
 
@@ -315,24 +304,15 @@ static internal class Cache
 	/// </summary>
 	private static bool PersistDocumentToDisk( Document document )
 	{
-		var attempt = 0;
-		var error = "";
+		var saved = FileController.SaveDocument( document );
 
-		while ( true )
-		{
-			if ( attempt++ >= 3 )
-			{
-				Log.Error(
-					$"failed to persist document \"{document.DocumentId}\" from collection \"{document.CollectionName}\" to disk after 3 tries: " +
-					error );
-				return false;
-			}
+		if ( saved )
+			return true;
 
-			error = FileController.SaveDocument( document );
-
-			if ( string.IsNullOrEmpty(error) )
-				return true;
-		}
+		Log.Error(
+			$"failed to persist document \"{document.DocumentId}\" from collection \"{document.CollectionName}\" to disk" );
+		
+		return false;
 	}
 
 	/// <summary>

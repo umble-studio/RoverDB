@@ -5,7 +5,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using RoverDB.Cache;
 using RoverDB.Helpers;
-using RoverDB.Serializers;
 using RoverDB.Testing;
 using Sandbox;
 using Sandbox.Internal;
@@ -19,20 +18,20 @@ internal static class FileController
 	/// </summary>
 	private static readonly Dictionary<string, object> _collectionWriteLocks = new();
 
-	private static IFileIOProvider IOProvider = null!;
+	private static IFileIOProvider _provider = null!;
 
 	public static void Initialise()
 	{
 		// Don't re-create if it already exists. Otherwise in the unit tests we
 		// lose all of the files after initialisation.
-		if ( IOProvider is null )
+		if ( _provider is null )
 		{
 			Log.Info( "recreating file IO provider..." );
 
 			if ( TestHelpers.IsUnitTests )
-				IOProvider = new MockFileIOProvider();
+				_provider = new MockFileIOProvider();
 			else
-				IOProvider = new FileIOProvider();
+				_provider = new FileIOProvider();
 		}
 	}
 
@@ -52,7 +51,7 @@ internal static class FileController
 		{
 			lock ( _collectionWriteLocks[collection] )
 			{
-				IOProvider.DeleteFile( $"{Config.DATABASE_NAME}/{collection}/{documentID}" );
+				_provider.DeleteFile( $"{Config.DATABASE_NAME}/{collection}/{documentID}" );
 			}
 
 			return null;
@@ -70,7 +69,7 @@ internal static class FileController
 	/// 
 	/// Returns null on success, or the error message on failure.
 	/// </summary>
-	public static string? SaveDocument( Document document )
+	public static bool SaveDocument( Document document )
 	{
 		try
 		{
@@ -78,7 +77,7 @@ internal static class FileController
 
 			// Load document currently stored on disk, if there is one.
 			var data = Config.MERGE_JSON
-				? IOProvider.ReadAllText( $"{Config.DATABASE_NAME}/{document.CollectionName}/{document.DocumentId}" )
+				? _provider.ReadAllText( $"{Config.DATABASE_NAME}/{document.CollectionName}/{document.DocumentId}" )
 				: null;
 
 			if ( data?[0] is 'O' )
@@ -92,7 +91,7 @@ internal static class FileController
 				var saveableProperties = PropertyDescriptionsCache.GetPropertyDescriptionsForType(
 					document.Data.GetType().ToString(), document.Data
 				);
-				
+
 				var propertyValuesMap = new Dictionary<string, PropertyDescription>();
 
 				foreach ( var property in saveableProperties )
@@ -138,7 +137,7 @@ internal static class FileController
 			else
 			{
 				// If no file exists for this record then we can just serialise the class directly.
-				output = SerializationHelper.SerializeClass( document.Data, document.DocumentType );
+				output = SerializationHelper.Serialize( document.Data, document.DocumentType );
 			}
 
 			if ( Config.OBFUSCATE_FILES )
@@ -146,15 +145,16 @@ internal static class FileController
 
 			lock ( _collectionWriteLocks[document.CollectionName] )
 			{
-				IOProvider.WriteAllText( $"{Config.DATABASE_NAME}/{document.CollectionName}/{document.DocumentId}",
+				_provider.WriteAllText( $"{Config.DATABASE_NAME}/{document.CollectionName}/{document.DocumentId}",
 					output );
 			}
 
-			return null;
+			return true;
 		}
 		catch ( Exception e )
 		{
-			return e.Message;
+			Log.Error( "failed to save document: " + e.Message );
+			return false;
 		}
 	}
 
@@ -162,22 +162,23 @@ internal static class FileController
 	/// The second return value is null on success, and contains the error message
 	/// on failure.
 	/// </summary>
-	public static (List<string>?, string?) ListCollectionNames()
+	public static List<string> ListCollectionNames()
 	{
 		try
 		{
-			return (IOProvider.FindDirectory( Config.DATABASE_NAME ).ToList(), null);
+			return _provider.FindDirectory( Config.DATABASE_NAME ).ToList();
 		}
 		catch ( Exception e )
 		{
-			return (null, e.StackTrace);
+			Log.Error( "failed to list collection names: " + e.Message );
+			return new List<string>();
 		}
 	}
 
 	/// <summary>
 	/// The second return value contains the error message (or null if successful).
 	/// </summary>
-	public static (Collection?, string?) LoadCollectionDefinition( string collectionName )
+	public static Collection? LoadCollectionDefinition( string collectionName )
 	{
 		try
 		{
@@ -188,28 +189,34 @@ internal static class FileController
 
 			lock ( _collectionWriteLocks[collectionName] )
 			{
-				data = IOProvider.ReadAllText( $"{Config.DATABASE_NAME}/{collectionName}/definition.txt" );
+				data = _provider.ReadAllText( $"{Config.DATABASE_NAME}/{collectionName}/definition.txt" );
 			}
 
 			if ( string.IsNullOrEmpty( data ) )
-				return (null, $"no definition.txt for collection \"{collectionName}\" found - see RepairGuide.txt");
+			{
+				Log.Error( $"no definition.txt for collection \"{collectionName}\" found - see RepairGuide.txt" );
+				return null;
+			}
 
 			Collection? collection;
 
 			try
 			{
-				collection = SerializationHelper.DeserializeClass<Collection>( data );
+				collection = SerializationHelper.Deserialize<Collection>( data );
 			}
 			catch ( Exception e )
 			{
-				return (null,
-					$"error thrown when deserializing definition.txt for \"{collectionName}\": " +
-					e.StackTrace);
+				Log.Error( $"error thrown when deserializing definition.txt for \"{collectionName}\": " +
+				           e.StackTrace );
+				return null;
 			}
 
 			if ( collection?.CollectionName != collectionName )
-				return (null,
-					$"failed to load definition.txt for collection \"{collectionName}\" - the CollectionName in the definition.txt differed from the name of the directory ({collectionName} vs {collection?.CollectionName}) - see RepairGuide.txt");
+			{
+				Log.Error(
+					$"failed to load definition.txt for collection \"{collectionName}\" - the CollectionName in the definition.txt differed from the name of the directory ({collectionName} vs {collection?.CollectionName}) - see RepairGuide.txt" );
+				return null;
+			}
 
 			try
 			{
@@ -219,149 +226,162 @@ internal static class FileController
 			}
 			catch ( Exception e )
 			{
-				return (null,
+				Log.Error(
 					$"couldn't load the type described by the definition.txt for collection \"{collectionName}\" - most probably you renamed or removed your data type - see RepairGuide.txt: " +
-					e.StackTrace);
+					e.StackTrace );
+				return null;
 			}
 
-			return (collection, null);
+			return collection;
 		}
 		catch ( Exception e )
 		{
-			return (null, e.StackTrace);
+			Log.Error( $"failed to load definition.txt for collection \"{collectionName}\": " +
+			           e.StackTrace );
+			return null;
 		}
 	}
 
 	/// <summary>
 	/// The second return value contains the error message (or null if successful).
 	/// </summary>
-	public static (List<Document>?, string?) LoadAllCollectionsDocuments( Collection collection )
+	public static List<Document> LoadAllCollectionsDocuments( Collection collection )
 	{
+		List<Document> output = new();
+
 		try
 		{
-			List<Document> output = new();
-
 			lock ( _collectionWriteLocks[collection.CollectionName] )
 			{
-				var files = IOProvider.FindFile( $"{Config.DATABASE_NAME}/{collection.CollectionName}/" )
+				var files = _provider.FindFile( $"{Config.DATABASE_NAME}/{collection.CollectionName}/" )
 					.Where( x => x is not "definition.txt" )
 					.ToList();
 
 				foreach ( var file in files )
 				{
 					var contents =
-						IOProvider.ReadAllText( $"{Config.DATABASE_NAME}/{collection.CollectionName}/{file}" );
+						_provider.ReadAllText( $"{Config.DATABASE_NAME}/{collection.CollectionName}/{file}" );
 
 					if ( contents[0] is 'O' )
 						contents = Obfuscation.UnobfuscateFileText( contents );
 
 					try
 					{
+						Log.Info("Deserializing " + string.Join(", ", file, collection.DocumentClassType));
+						
 						var document = new Document(
-							SerializationHelper.DeserializeClass( contents, collection.DocumentClassType ),
+							SerializationHelper.Deserialize( contents, collection.DocumentClassType ),
 							false,
 							collection.CollectionName );
 
 						if ( file != document.DocumentId )
-							return (null,
-								$"failed loading document \"{file}\": the filename does not match the UID ({file} vs {document.DocumentId}) - see RepairGuide.txt");
+						{
+							Log.Error(
+								$"failed loading document \"{file}\": the filename does not match the UID ({file} vs {document.DocumentId}) - see RepairGuide.txt" );
+							return output;
+						}
 
 						output.Add( document );
 					}
 					catch ( Exception e )
 					{
-						return (null,
-							$"failed loading document \"{file}\" - your JSON is probably invalid: " +
-							e.StackTrace);
+						Log.Error( $"failed loading document \"{file}\" - your JSON is probably invalid: " +
+						           e.StackTrace );
+						return output;
 					}
 				}
 			}
 
-			return (output, null);
+			return output;
 		}
 		catch ( Exception e )
 		{
-			return (null, e.StackTrace);
+			Log.Error( "failed to load all collection documents: " + e.Message );
+			return output;
 		}
 	}
 
 	/// <summary>
 	/// Returns null on success, or the error message on failure.
 	/// </summary>
-	public static string? SaveCollectionDefinition( Collection collection )
+	public static bool SaveCollectionDefinition( Collection collection )
 	{
 		try
 		{
-			var data = SerializationHelper.SerializeClass( collection );
+			var data = SerializationHelper.Serialize( collection );
 
 			lock ( _collectionWriteLocks[collection.CollectionName] )
 			{
-				if ( !IOProvider.DirectoryExists( $"{Config.DATABASE_NAME}/{collection.CollectionName}" ) )
-					IOProvider.CreateDirectory( $"{Config.DATABASE_NAME}/{collection.CollectionName}" );
+				if ( !_provider.DirectoryExists( $"{Config.DATABASE_NAME}/{collection.CollectionName}" ) )
+					_provider.CreateDirectory( $"{Config.DATABASE_NAME}/{collection.CollectionName}" );
 
-				IOProvider.WriteAllText( $"{Config.DATABASE_NAME}/{collection.CollectionName}/definition.txt", data );
+				_provider.WriteAllText( $"{Config.DATABASE_NAME}/{collection.CollectionName}/definition.txt", data );
 			}
 
-			return null;
+			return true;
 		}
 		catch ( Exception e )
 		{
-			return e.StackTrace;
+			Log.Error( "failed to save collection definition: " + e.Message );
+			return false;
 		}
 	}
 
 	/// <summary>
 	/// Returns null on success, or the error message on failure.
 	/// </summary>
-	private static string? DeleteCollection( string name )
+	private static bool DeleteCollection( string name )
 	{
 		try
 		{
 			lock ( _collectionWriteLocks[name] )
 			{
-				IOProvider.DeleteDirectory( $"{Config.DATABASE_NAME}/{name}", true );
+				_provider.DeleteDirectory( $"{Config.DATABASE_NAME}/{name}", true );
 			}
 
-			return null;
+			return true;
 		}
 		catch ( Exception e )
 		{
-			return e.StackTrace;
+			Log.Error( "failed to delete collection: " + e.Message );
+			return false;
 		}
 	}
 
 	/// <summary>
 	/// Wipes all RoverDatabase files. Returns null on success and the error message on failure.
 	/// </summary>
-	public static string? WipeFilesystem()
+	public static bool WipeFilesystem()
 	{
 		try
 		{
-			var (collections, error) = ListCollectionNames();
-			
-			if ( collections is null ) 
-				return null;
-			
-			if ( !string.IsNullOrEmpty( error ) )
-				return $"failed to wipe filesystem: {error}";
+			var collections = ListCollectionNames();
+
+			if ( collections.Count is not 0 )
+			{
+				Log.Error( $"failed to wipe filesystem" );
+				return false;
+			}
 
 			// Don't delete collection folders when we are half-way through writing to them.
 			lock ( Cache.Cache.WriteInProgressLock )
 			{
 				foreach ( var collection in collections )
 				{
-					error = DeleteCollection( collection );
+					var delete = DeleteCollection( collection );
+					if ( delete ) continue;
 
-					if ( !string.IsNullOrEmpty( error ) )
-						return $"failed to wipe filesystem: {error}";
+					Log.Error( $"failed to wipe filesystem" );
+					return false;
 				}
 			}
 
-			return null;
+			return true;
 		}
 		catch ( Exception e )
 		{
-			return e.StackTrace;
+			Log.Error( "failed to wipe filesystem: " + e.Message );
+			return false;
 		}
 	}
 
@@ -369,28 +389,19 @@ internal static class FileController
 	/// Creates the directories needed for the database. Returns null on success, or the error message
 	/// on failure.
 	/// </summary>
-	public static string? EnsureFileSystemSetup()
+	public static bool EnsureFileSystemSetup()
 	{
-		var attempt = 0;
-		var error = "";
-
-		while ( true )
+		try
 		{
-			try
-			{
-				if ( attempt++ >= 10 )
-					return "failed to ensure filesystem is setup after 10 tries: " + error;
+			if ( !_provider.DirectoryExists( Config.DATABASE_NAME ) )
+				_provider.CreateDirectory( Config.DATABASE_NAME );
 
-				// Create main directory.
-				if ( !IOProvider.DirectoryExists( Config.DATABASE_NAME ) )
-					IOProvider.CreateDirectory( Config.DATABASE_NAME );
-
-				return null;
-			}
-			catch ( Exception e )
-			{
-				error = e.StackTrace;
-			}
+			return true;
+		}
+		catch ( Exception e )
+		{
+			Log.Error( "failed to ensure filesystem setup: " + e.Message );
+			return false;
 		}
 	}
 }

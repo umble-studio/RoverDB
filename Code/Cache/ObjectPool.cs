@@ -24,17 +24,15 @@ internal static class ObjectPool
 
 	public static T CloneObject<T>( T theObject, string classTypeName )
 	{
-		Log.Info( "Clone instance for " + string.Join( ", ", theObject.GetType(), classTypeName ) );
-
 		var instance = GetInstance<T>( theObject.GetType() );
-		Cloning.CopyClassData( theObject, instance, classTypeName );
+		PropertyCloningHelper.CopyClassData( theObject, instance, classTypeName );
 		return instance;
 	}
 
 	public static object CloneObject( object theObject, Type objectType )
 	{
 		var instance = GetInstance( objectType );
-		Cloning.CopyClassData( theObject, instance, objectType.FullName! );
+		PropertyCloningHelper.CopyClassData( theObject, instance, objectType.FullName! );
 		return instance;
 	}
 
@@ -54,8 +52,6 @@ internal static class ObjectPool
 		if ( _objectPool[classTypeName].TypePool.TryTake( out var instance ) )
 			return instance;
 
-		Log.Info( "Create instance for " + targetType.FullName );
-
 		// If we couldn't get an instance, then we just have to create a new one.
 		return GlobalGameNamespace.TypeLibrary.Create<object>( targetType );
 	}
@@ -65,15 +61,12 @@ internal static class ObjectPool
 		// var baseClassType = classType;
 		var baseType = classType.GetCollectionType();
 
-		Log.Info( "GetInstance1: " + string.Join( ", ", typeof(T), baseType, classType ) );
-
 		if ( _objectPool[baseType.FullName!].TypePool.TryTake( out var instance ) )
 			return (T)instance;
 
 		// If we couldn't get an instance, then we just have to create a new one.
 		// return new T();
 
-		Log.Info( "GetInstance2: " + string.Join( ", ", typeof(T), classType ) );
 		return (T)GlobalGameNamespace.TypeLibrary.Create( classType.Name, classType );
 	}
 
@@ -88,7 +81,7 @@ internal static class ObjectPool
 		// Different collections might use the same type. So this is possible.
 		if ( _objectPool.ContainsKey( classTypeName ) )
 			return;
-
+		
 		_objectPool[classTypeName] = new PoolTypeDefinition
 		{
 			ObjectType = classType, TypePool = new ConcurrentBag<object>()
@@ -116,11 +109,12 @@ internal static class ObjectPool
 
 	private static void ReplenishPoolType( string classTypeName, Type classType )
 	{
-		classType = classType.GetCollectionType();
-		
 		var concurrentList = _objectPool[classTypeName].TypePool;
 		var instancesToCreate = Config.CLASS_INSTANCE_POOL_SIZE - concurrentList.Count;
 
+		Log.Info("Replenishing pool of type: " + classType);
+		if ( classType.IsAbstract ) return;
+		
 		for ( var i = 0; i < instancesToCreate; i++ )
 		{
 			concurrentList.Add( GlobalGameNamespace.TypeLibrary.Create<object>( classType ) );

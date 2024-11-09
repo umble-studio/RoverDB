@@ -21,7 +21,7 @@ public static class RoverDatabaseAutoSavedEventHandler
 		p.Setter( p.Value );
 
 		// Don't auto-save while we are initialising. It is pointless.
-		if ( !RoverDatabase.IsInitialised ) return;
+		if ( !RoverDatabase.Instance.IsInitialised ) return;
 
 		// var id = (string)GlobalGameNamespace.TypeLibrary.GetPropertyValue( p.Object, "UID" );
 		//
@@ -59,7 +59,7 @@ public static class RoverDatabaseAutoSavedEventHandler
 					p.Attributes.First( x => x.GetType().ToString() == "RoverDB.Attributes.AutoSavedAttribute" ),
 					"CollectionName" );
 
-				RoverDatabase.Insert( collectionName, p.Object );
+				RoverDatabase.Instance.Insert( collectionName, p.Object );
 			}
 			finally
 			{

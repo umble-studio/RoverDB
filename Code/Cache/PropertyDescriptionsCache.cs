@@ -38,7 +38,7 @@ internal static class PropertyDescriptionsCache
 			return properties;
 
 		properties = GlobalGameNamespace.TypeLibrary.GetPropertyDescriptions( instance )
-			.Where( x => x.Attributes.Any( a => a is SavedAttribute or AutoSavedAttribute ) )
+			.Where( x => x.Attributes.Any( a => a is SavedAttribute /*or AutoSavedAttribute*/ ) )
 			.ToArray();
 
 		if ( properties.Any( x => x.Attributes.Any( a => a is IdAttribute ) ) )

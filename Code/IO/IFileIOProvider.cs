@@ -7,12 +7,12 @@ namespace RoverDB.IO;
 /// </summary>
 internal interface IFileIOProvider
 {
-	public bool DirectoryExists( string directory );
-	public void CreateDirectory( string directory );
-	public void DeleteDirectory( string directory, bool recursive = false );
-	public void WriteAllText( string file, string text );
-	public string ReadAllText( string file );
-	public void DeleteFile( string file );
-	public IEnumerable<string> FindFile( string folder, string pattern = "*", bool recursive = false );
-	public IEnumerable<string> FindDirectory( string folder, string pattern = "*", bool recursive = false );
+	bool DirectoryExists( string directory );
+	void CreateDirectory( string directory );
+	void DeleteDirectory( string directory, bool recursive = false );
+	void WriteAllText( string file, string text );
+	string ReadAllText( string file );
+	void DeleteFile( string file );
+	IEnumerable<string> FindFile( string folder, string pattern = "*", bool recursive = false );
+	IEnumerable<string> FindDirectory( string folder, string pattern = "*", bool recursive = false );
 }

@@ -10,15 +10,15 @@ namespace RoverDB.Attributes;
 /// While this is the most convenient approach, as this will save the document every time data
 /// is changed, this will generally perform worse than [Saved].
 /// </summary>
-[AttributeUsage( AttributeTargets.Property )]
-[CodeGenerator( CodeGeneratorFlags.WrapPropertySet | CodeGeneratorFlags.Instance,
-	"RoverDB.CodeGenerators.RoverDatabaseAutoSavedEventHandler.AutoSave" )]
-public class AutoSavedAttribute : Attribute
-{
-	public string CollectionName { get; set; }
-
-	public AutoSavedAttribute( string collectionName )
-	{
-		CollectionName = collectionName;
-	}
-}
+// [AttributeUsage( AttributeTargets.Property )]
+// [CodeGenerator( CodeGeneratorFlags.WrapPropertySet | CodeGeneratorFlags.Instance,
+// 	"RoverDB.CodeGenerators.RoverDatabaseAutoSavedEventHandler.AutoSave" )]
+// public class AutoSavedAttribute : Attribute
+// {
+// 	public string CollectionName { get; set; }
+//
+// 	public AutoSavedAttribute( string collectionName )
+// 	{
+// 		CollectionName = collectionName;
+// 	}
+// }

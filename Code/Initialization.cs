@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using RoverDB.Exceptions;
 using RoverDB.IO;
 
 namespace RoverDB;
@@ -33,7 +31,6 @@ internal static class Initialization
 
 			try
 			{
-				Shutdown.WipeStaticFields();
 				FileController.Initialise();
 				FileController.EnsureFileSystemSetup();
 				LoadCollections();
@@ -62,70 +59,35 @@ internal static class Initialization
 
 	private static void LoadCollections()
 	{
-		var attempt = 0;
-		string? error = null;
-		List<string>? collectionNames;
+		var collectionNames = FileController.ListCollectionNames();
 
-		while ( true )
-		{
-			if ( attempt++ >= 10 )
-				throw new RoverDatabaseException( $"failed to load collection list after 10 tries: {error}" );
-
-			(collectionNames, error) = FileController.ListCollectionNames();
-
-			if ( string.IsNullOrEmpty( error ) )
-				break;
-		}
-
-		attempt = 0;
-
-		if ( collectionNames is null ) return;
-		
 		foreach ( var collectionName in collectionNames )
 		{
 			Log.Info( $"attempting to load collection \"{collectionName}\"" );
-
-			while ( true )
-			{
-				if ( attempt++ >= 10 )
-					throw new RoverDatabaseException(
-						$"failed to load collection {collectionName} after 10 tries: {error}" );
-
-				error = LoadCollection( collectionName );
-
-				if ( string.IsNullOrEmpty( error ) )
-					break;
-			}
+			LoadCollection( collectionName );
 		}
 	}
 
 	/// <summary>
 	/// Returns null on success or the error message on failure.
 	/// </summary>
-	private static string? LoadCollection( string name )
+	private static bool LoadCollection( string name )
 	{
-		var (definition, error) = FileController.LoadCollectionDefinition( name );
-
-		if ( !string.IsNullOrEmpty( error ) )
-			return $"failed loading collection definition for collection \"{name}\": {error}";
+		var definition = FileController.LoadCollectionDefinition( name );
 
 		if ( definition is null )
-			return
-				$"found a folder for collection {name} but the definition.txt was missing in that folder or failed to load";
+		{
+			Log.Error(
+				$"found a folder for collection {name} but the definition.txt was missing in that folder or failed to load" );
+			return false;
+		}
 
-		(var documents, error) = FileController.LoadAllCollectionsDocuments( definition );
-		
-		if ( documents is null ) 
-			return null;
-		
-		if ( !string.IsNullOrEmpty( error ) )
-			return $"failed loading documents for collection \"{name}\": {error}";
+		var documents = FileController.LoadAllCollectionsDocuments( definition );
 
 		Cache.Cache.CreateCollection( name, definition.DocumentClassType );
 		Cache.Cache.InsertDocumentsIntoCollection( name, documents );
 
 		Log.Info( $"Loaded collection {name} with {documents.Count} documents" );
-
-		return null;
+		return true;
 	}
 }

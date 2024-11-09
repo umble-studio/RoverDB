@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RoverDB.Attributes;
 using Sandbox.Internal;
 
-namespace RoverDB.Serializers;
+namespace RoverDB.Converters;
 
 public class GenericSavedDataConverter : JsonConverter<object>
 {
@@ -15,7 +14,7 @@ public class GenericSavedDataConverter : JsonConverter<object>
 		var instance = GlobalGameNamespace.TypeLibrary.Create<object>( typeToConvert );
 
 		var properties = GlobalGameNamespace.TypeLibrary.GetPropertyDescriptions( instance, true )
-			.Where( prop => prop.Attributes.Any( a => a is SavedAttribute or AutoSavedAttribute ) )
+			.Where( prop => prop.Attributes.Any( a => a is SavedAttribute /*or AutoSavedAttribute*/ ) )
 			.ToList();
 
 		if ( reader.TokenType is not JsonTokenType.StartObject )
@@ -55,7 +54,7 @@ public class GenericSavedDataConverter : JsonConverter<object>
 		writer.WriteStartObject();
 
 		var properties = GlobalGameNamespace.TypeLibrary.GetPropertyDescriptions( value )
-			.Where( prop => prop.Attributes.Any( a => a is SavedAttribute or AutoSavedAttribute ) );
+			.Where( prop => prop.Attributes.Any( a => a is SavedAttribute /*or AutoSavedAttribute*/ ) );
 
 		foreach ( var prop in properties )
 		{

@@ -13,7 +13,6 @@ internal sealed class Collection
 	/// We'll convert it back to a type when we load the collection from file.
 	/// </summary>
 	[Saved] public string DocumentClassTypeSerialized { get; init; } = null!;
-
 	[Saved] public string CollectionName { get; init; } = null!;
 
 	public Type DocumentClassType = null!;

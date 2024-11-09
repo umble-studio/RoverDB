@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("roverdb.unittest")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+04137bc9e7c1fd761d32c7f6f4071f940e18a421")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b3b6769fc6a3f4b08185db539defa1bdb55b894a")]
 [assembly: System.Reflection.AssemblyProductAttribute("roverdb.unittest")]
 [assembly: System.Reflection.AssemblyTitleAttribute("roverdb.unittest")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
