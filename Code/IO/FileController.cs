@@ -11,16 +11,16 @@ using Sandbox.Internal;
 
 namespace RoverDB.IO;
 
-internal static class FileController
+internal class FileController
 {
 	/// <summary>
 	/// Only let one thread write/read a collection at a time using this lock.
 	/// </summary>
-	private static readonly Dictionary<string, object> _collectionWriteLocks = new();
+	private readonly Dictionary<string, object> _collectionWriteLocks = new();
 
-	private static IFileIOProvider _provider = null!;
+	private IFileIOProvider _provider = null!;
 
-	public static void Initialise()
+	public void Initialise()
 	{
 		// Don't re-create if it already exists. Otherwise in the unit tests we
 		// lose all of the files after initialisation.
@@ -35,7 +35,7 @@ internal static class FileController
 		}
 	}
 
-	public static void CreateCollectionLock( string collection )
+	public void CreateCollectionLock( string collection )
 	{
 		Log.Info( $"creating collection write lock for collection \"{collection}\"" );
 
@@ -45,20 +45,19 @@ internal static class FileController
 	/// <summary>
 	/// Returns null on success, or the error message on failure.
 	/// </summary>
-	public static string? DeleteDocument( string collection, object documentID )
+	public bool DeleteDocument( string collection, object documentID )
 	{
 		try
 		{
 			lock ( _collectionWriteLocks[collection] )
-			{
 				_provider.DeleteFile( $"{Config.DATABASE_NAME}/{collection}/{documentID}" );
-			}
 
-			return null;
+			return true;
 		}
 		catch ( Exception e )
 		{
-			return e.StackTrace;
+			Log.Info("failed to delete document: " + e.Message);
+			return false;
 		}
 	}
 
@@ -69,7 +68,7 @@ internal static class FileController
 	/// 
 	/// Returns null on success, or the error message on failure.
 	/// </summary>
-	public static bool SaveDocument( Document document )
+	public bool SaveDocument( Document document )
 	{
 		try
 		{
@@ -162,7 +161,7 @@ internal static class FileController
 	/// The second return value is null on success, and contains the error message
 	/// on failure.
 	/// </summary>
-	public static List<string> ListCollectionNames()
+	public List<string> ListCollectionNames()
 	{
 		try
 		{
@@ -178,7 +177,7 @@ internal static class FileController
 	/// <summary>
 	/// The second return value contains the error message (or null if successful).
 	/// </summary>
-	public static Collection? LoadCollectionDefinition( string collectionName )
+	public Collection? LoadCollectionDefinition( string collectionName )
 	{
 		try
 		{
@@ -245,7 +244,7 @@ internal static class FileController
 	/// <summary>
 	/// The second return value contains the error message (or null if successful).
 	/// </summary>
-	public static List<Document> LoadAllCollectionsDocuments( Collection collection )
+	public List<Document> LoadAllCollectionsDocuments( Collection collection )
 	{
 		List<Document> output = new();
 
@@ -304,7 +303,7 @@ internal static class FileController
 	/// <summary>
 	/// Returns null on success, or the error message on failure.
 	/// </summary>
-	public static bool SaveCollectionDefinition( Collection collection )
+	public bool SaveCollectionDefinition( Collection collection )
 	{
 		try
 		{
@@ -330,7 +329,7 @@ internal static class FileController
 	/// <summary>
 	/// Returns null on success, or the error message on failure.
 	/// </summary>
-	private static bool DeleteCollection( string name )
+	private bool DeleteCollection( string name )
 	{
 		try
 		{
@@ -351,7 +350,7 @@ internal static class FileController
 	/// <summary>
 	/// Wipes all RoverDatabase files. Returns null on success and the error message on failure.
 	/// </summary>
-	public static bool WipeFilesystem()
+	public bool WipeFilesystem()
 	{
 		try
 		{
@@ -389,7 +388,7 @@ internal static class FileController
 	/// Creates the directories needed for the database. Returns null on success, or the error message
 	/// on failure.
 	/// </summary>
-	public static bool EnsureFileSystemSetup()
+	public bool EnsureFileSystemSetup()
 	{
 		try
 		{

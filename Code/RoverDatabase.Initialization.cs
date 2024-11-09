@@ -3,20 +3,20 @@ using RoverDB.IO;
 
 namespace RoverDB;
 
-internal static class Initialization
+public partial class RoverDatabase
 {
-	public static DatabaseState CurrentDatabaseState;
+	public DatabaseState State;
 
 	/// <summary>
 	/// Only let one thread initialse the database at once.
 	/// </summary>
-	public static readonly object InitialisationLock = new();
+	private readonly object _initializationLock = new();
 
-	public static void Initialize()
+	private void Initialize()
 	{
-		lock ( InitialisationLock )
+		lock ( _initializationLock )
 		{
-			if ( CurrentDatabaseState is not DatabaseState.Uninitialised )
+			if ( State is not DatabaseState.Uninitialised )
 				return; // Probably another thread already did all this.
 
 			if ( !Config.MERGE_JSON )
@@ -31,12 +31,12 @@ internal static class Initialization
 
 			try
 			{
-				FileController.Initialise();
-				FileController.EnsureFileSystemSetup();
+				_fileController.Initialise();
+				_fileController.EnsureFileSystemSetup();
 				LoadCollections();
 				Ticker.Initialise();
 
-				CurrentDatabaseState = DatabaseState.Initialised;
+				State = DatabaseState.Initialised;
 
 				if ( Config.STARTUP_SHUTDOWN_MESSAGES )
 				{
@@ -57,9 +57,9 @@ internal static class Initialization
 		}
 	}
 
-	private static void LoadCollections()
+	private void LoadCollections()
 	{
-		var collectionNames = FileController.ListCollectionNames();
+		var collectionNames = _fileController.ListCollectionNames();
 
 		foreach ( var collectionName in collectionNames )
 		{
@@ -71,9 +71,9 @@ internal static class Initialization
 	/// <summary>
 	/// Returns null on success or the error message on failure.
 	/// </summary>
-	private static bool LoadCollection( string name )
+	private bool LoadCollection( string name )
 	{
-		var definition = FileController.LoadCollectionDefinition( name );
+		var definition = _fileController.LoadCollectionDefinition( name );
 
 		if ( definition is null )
 		{
@@ -82,7 +82,7 @@ internal static class Initialization
 			return false;
 		}
 
-		var documents = FileController.LoadAllCollectionsDocuments( definition );
+		var documents = _fileController.LoadAllCollectionsDocuments( definition );
 
 		Cache.Cache.CreateCollection( name, definition.DocumentClassType );
 		Cache.Cache.InsertDocumentsIntoCollection( name, documents );

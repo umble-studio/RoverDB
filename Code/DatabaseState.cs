@@ -1,6 +1,6 @@
 ﻿namespace RoverDB;
 
-internal enum DatabaseState
+public enum DatabaseState
 {
 	Uninitialised,
 	Initialised

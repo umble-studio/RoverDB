@@ -251,7 +251,7 @@ public partial class RoverDatabaseTest
 		Assert.AreEqual( 0, document2.Health );
 		Assert.AreEqual( null, document2.Name );
 
-		RoverDatabase.CopySavedData<TestClasses.ClassWithNonSavedProperty>( document1, document2 );
+		RoverDatabase.CopySavedData( document1, document2 );
 
 		Assert.AreEqual( 50, document2.Health );
 		Assert.AreEqual( null, document2.Name );
@@ -273,7 +273,7 @@ public partial class RoverDatabaseTest
 		Assert.AreEqual( null, document2.UID );
 		Assert.AreEqual( 0, document2.Items.Count );
 
-		RoverDatabase.CopySavedData<TestClasses.AutoSavedReadmeExample>( document1, document2 );
+		RoverDatabase.CopySavedData( document1, document2 );
 
 		Assert.AreEqual( 50, document2.Health );
 		Assert.AreEqual( "Steve", document2.Name );
