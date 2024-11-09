@@ -83,10 +83,7 @@ internal class ObjectPool
 		if ( _objectPool.ContainsKey( classTypeName ) )
 			return;
 
-		_objectPool[classTypeName] = new PoolTypeDefinition
-		{
-			ObjectType = classType, TypePool = new ConcurrentBag<object>()
-		};
+		_objectPool[classTypeName] = new PoolTypeDefinition( classType, new ConcurrentBag<object>() );
 	}
 
 	public void TryCheckPool()
@@ -121,10 +118,4 @@ internal class ObjectPool
 			concurrentList.Add( GlobalGameNamespace.TypeLibrary.Create<object>( classType ) );
 		}
 	}
-}
-
-internal struct PoolTypeDefinition
-{
-	public Type ObjectType;
-	public ConcurrentBag<object> TypePool;
 }
