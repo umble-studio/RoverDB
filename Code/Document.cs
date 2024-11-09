@@ -1,92 +1,135 @@
 ﻿using System;
-using System.Linq;
+using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using RoverDB.Attributes;
 using RoverDB.Exceptions;
+using RoverDB.Extensions;
 using RoverDB.Helpers;
-using RoverDB.IO;
-using Sandbox.Internal;
+using Sandbox;
 
 namespace RoverDB;
 
-internal sealed class Document
+public sealed class Document
 {
-	public readonly Type DocumentType;
-	public readonly string CollectionName;
+	private readonly object _writeLock = new();
 
-	/// <summary>
-	/// This is also stored embedded in the Data object, but we keep it
-	/// here as an easily-accessible copy for convenience. We call it UID instead
-	/// of ID because s&amp;box already has its own "Id" field on components.
-	/// </summary>
-	[Saved]
-	public Guid DocumentId { get; private set; }
+	[Saved] public string CollectionName { get; set; } = null!;
+	[Id, Saved] public Guid DocumentId { get; set; }
+	[Saved] public string DocumentTypeSerialized { get; set; } = null!;
+	[Saved] public object Data { get; set; } = null!;
 
-	/// <summary>
-	/// We could save the data as a dictionary, which would stop us from having to
-	/// clone a new object on document creation. However, this would stop us from
-	/// easily doing lambdas against the document data, so it's not really worth it.
-	/// </summary>
-	[Saved]
-	public object Data { get; private set; }
+	public Document()
+	{
+	}
 
 	public Document( object data, string collectionName )
 	{
-		Data = data;
-
 		var documentType = data.GetType();
+
+		Data = data;
+		DocumentTypeSerialized = documentType.FullName!;
+		CollectionName = collectionName;
 
 		if ( !CollectionAttributeHelper.TryGetAttribute( documentType, out _ ) )
 			throw new RoverDatabaseException( $"Type {documentType.FullName} is not a collection" );
 
-		if ( !PropertyHelper.HasPropertyId( data ) )
-		{
-			Log.Error(
-				"cannot handle a document without a property marked with a Id attribute" );
-		}
-
-		var propertyId = PropertyHelper.GetPropertyId( data );
-
-		if ( !propertyId.IsPropertyGuid() )
-		{
-			Log.Error( "The Id property must be of type Guid" );
-			return;
-		}
-
-		var propertyValue = propertyId.GetValue( data );
-
-		if ( !Guid.TryParse( propertyValue?.ToString(), out var guid ) )
-		{
-			Log.Error("failed to parse document id. (wrong format)");
-			return;
-		}
-		
-		if ( guid == Guid.Empty )
-		{
-			DocumentId = Guid.NewGuid();
-			propertyId.SetValue( Data, DocumentId );
-		}
-		else
-		{
-			DocumentId = guid;
-		}
-		
-		DocumentType = documentType;
-		CollectionName = collectionName;
-
-		// We want to avoid modifying a passed-in reference, so we clone it.
-		// But this is redundant in some cases, in which case we don't do it.
-		// if ( needsCloning )
-		// 	data = ObjectPool.CloneObject( data, documentType.TargetType );
-		//
-		// Data = data;
-		// Cache.Cache.StaleDocuments.Add( this );
+		if ( DocumentId != Guid.Empty ) return;
+		DocumentId = Guid.NewGuid();
 	}
 
-	internal void Save( FileController fileController )
+	/// <summary>
+	/// Returns null on success, or the error message on failure.
+	/// </summary>
+	public void Delete()
 	{
-		var documentType = GlobalGameNamespace.TypeLibrary.GetType( Data.GetType() );
+		try
+		{
+			lock ( _writeLock )
+				FileSystem.Data.DeleteFile( $"{Config.DatabaseName}/{CollectionName}/{DocumentId}" );
+		}
+		catch ( Exception e )
+		{
+			Log.Info( "failed to delete document: " + e.Message );
+		}
+	}
 
-		Data = fileController.Cache.Pool.CloneObject( Data, documentType.TargetType );
-		fileController.Cache.StaleDocuments.Add( this );
+	public void SaveDocument()
+	{
+		try
+		{
+			string output;
+
+			// Load document currently stored on disk, if there is one.
+			var data = Config.MergeJson
+				? FileSystem.Data.ReadAllText( $"{Config.DatabaseName}/{CollectionName}/{DocumentId}" )
+				: null;
+
+			if ( Config.MergeJson && data is not null )
+			{
+				var currentDocument = JsonDocument.Parse( data );
+
+				// Get data from the new document we want to save.
+				var saveableProperties = CachePropertyExtensions.GetPropertyDescriptionsForType(
+					Data.GetType().ToString(), this
+				);
+
+				var propertyValuesMap = new Dictionary<string, PropertyDescription>();
+
+				foreach ( var property in saveableProperties )
+					propertyValuesMap.Add( property.Name, property );
+
+				// Construct a new JSON object.
+				var jsonObject = new JsonObject();
+
+				// Add data by iterating over fields of old version.
+				foreach ( var oldDocumentProperty in currentDocument.RootElement.EnumerateObject() )
+				{
+					if ( propertyValuesMap.ContainsKey( oldDocumentProperty.Name ) )
+					{
+						// Prefer values from the newer document.
+						var value = propertyValuesMap[oldDocumentProperty.Name].GetValue( this );
+						var type = propertyValuesMap[oldDocumentProperty.Name].PropertyType;
+
+						jsonObject.Add( oldDocumentProperty.Name, JsonSerializer.SerializeToNode( value, type ) );
+					}
+					else
+					{
+						// If newer document doesn't have this field, use the value from old document.
+						jsonObject.Add( oldDocumentProperty.Name,
+							JsonNode.Parse( oldDocumentProperty.Value.GetRawText() ) );
+					}
+				}
+
+				// Also add any new fields the old version might not have.
+				foreach ( var property in propertyValuesMap )
+				{
+					if ( !jsonObject.ContainsKey( property.Key ) )
+					{
+						var value = propertyValuesMap[property.Key].GetValue( this );
+						var type = propertyValuesMap[property.Key].PropertyType;
+
+						jsonObject.Add( property.Key, JsonSerializer.SerializeToNode( value, type ) );
+					}
+				}
+
+				// Serialize the object we just created.
+				output = SerializationHelper.SerializeJsonObject( jsonObject );
+			}
+			else
+			{
+				output = SerializationHelper.Serialize( this );
+			}
+
+			lock ( _writeLock )
+			{
+				FileSystem.Data.WriteAllText( $"{Config.DatabaseName}/{CollectionName}/{DocumentId}",
+					output );
+			}
+		}
+		catch ( Exception e )
+		{
+			Log.Error( "failed to save document: " + e.Message );
+		}
 	}
 }

@@ -1,4 +1,4 @@
-﻿namespace RoverDB; 
+﻿namespace RoverDB;
 
 public static class Config
 {
@@ -7,12 +7,14 @@ public static class Config
 	/// stops and starts.
 	/// </summary>
 	public static bool StartupShutdownMessages = true;
+
 	/// <summary>
 	/// If this is true then all warnings are thrown as exceptions. I probably wouldn't
 	/// recommend this but you can enable it if you want. This is used in the unit tests
 	/// to make life easier.
 	/// </summary>
 	public static bool WarningsAsExceptions = false;
+
 	/// <summary>
 	/// Set this to true if you want clients to be able to use the database too. You
 	/// probably don't want this - none of the data will get synced between host and clients
@@ -20,12 +22,14 @@ public static class Config
 	/// want to store data on the client for some reason.
 	/// </summary>
 	public static bool ClientsCanUse = false;
+
 	/// <summary>
 	/// This controls whether the written JSON files are indented or not.
 	/// Indentation makes them more human-readable, but probably makes saving
 	/// to disk a little bit slower.
 	/// </summary>
-	public static bool IndentJson = true;
+	public static bool IndentJson = false;
+
 	/// <summary>
 	/// The database will try to make sure that all stale data is written to disk
 	/// at most every this many seconds. In the event of a crash, all stale data
@@ -33,6 +37,7 @@ public static class Config
 	/// performance under heavy loads due to increased disk writing.
 	/// </summary>
 	public static float PersistEverySeconds = 10f;
+
 	/// <summary>
 	/// We will only try to perform a partial write this many times per second. A partial
 	/// write doesn't write everything, so changing this will not really change
@@ -40,11 +45,13 @@ public static class Config
 	/// spamming writes every tick. You probably don't want to change this.
 	/// </summary>
 	public static int PartialWritePerSecond = 1;
+
 	/// <summary>
 	/// Enables logging for helping to diagnose issues. This is mostly for development
 	/// purposes.
 	/// </summary>
 	public static bool EnableLogging = false;
+
 	/// <summary>
 	/// This is the name of the folder where your files are kept (e.g. "rover_db/my_collection").
 	/// There's no reason to change it, but you're more than welcome to. If you're
@@ -52,11 +59,13 @@ public static class Config
 	/// folder.
 	/// </summary>
 	public static string DatabaseName = "rover_db";
+
 	/// <summary>
 	/// How often the database ticks in milliseconds. I don't recommend changing this as
 	/// you are not necessarily making things any faster.
 	/// </summary>
-	public static int TickDelta = 100;
+	public static int SaveInterval = 5000;
+
 	/// <summary>
 	/// The number of instances of each class used by your database that will be cached in RAM for
 	/// faster fetching. Increasing this will improve performance if you are selecting
@@ -72,6 +81,7 @@ public static class Config
 	/// <strong>200mb * number of collections * CLASS_INSTANCE_POOL_SIZE / 100,000</strong>
 	/// </summary>
 	public static int ClassInstancePoolSize = 2000;
+
 	/// <summary>
 	/// This should always true unless you know what you are doing.
 	/// <br/><br/>

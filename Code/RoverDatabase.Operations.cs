@@ -3,96 +3,79 @@ using System.Collections.Generic;
 using System.Linq;
 using RoverDB.Extensions;
 using RoverDB.Helpers;
-using Sandbox.Internal;
 
 namespace RoverDB;
 
 public partial class RoverDatabase
 {
-	/// <summary>
-	/// Copy the saveable data from one class to another. This is useful for when you load
-	/// data from the database and you want to put it in a component or something like that.
-	/// </summary>
-	internal void CopySavedData<T>( T sourceClass, T destinationClass )
-	{
-		_fileController.Cache.CopyClassData( sourceClass, destinationClass );
-	}
-
-	/// <summary>
-	/// Insert a document into the database. The document will have its ID set
-	/// if it is empty.
-	/// </summary>
 	public bool Insert<T>( T document ) where T : class
 	{
 		if ( !CollectionAttributeHelper.TryGetAttribute( typeof(T), out var collectionAttr ) )
 			return false;
 
-		var relevantCollection = _fileController.Cache.GetCollectionByName<T>( collectionAttr.Name, true );
-
-		if ( relevantCollection is null )
+		try
 		{
-			Log.Error( "failed to insert document into collection: collection not found" );
+			// The collection does not exist, create it
+			var relevantCollection = GetCollectionByName( collectionAttr.Name )
+			                         ?? CreateCollection( collectionAttr.Name );
+
+			var newDocument = new Document( document, collectionAttr.Name );
+			relevantCollection.InsertDocument( newDocument );
+
+			return true;
+		}
+		catch ( Exception ex )
+		{
+			Log.Error( "failed to insert document: " + ex.Message );
 			return false;
 		}
-
-		var newDocument = new Document( document, collectionAttr.Name );
-		relevantCollection.InsertDocument( _fileController, newDocument );
-
-		return true;
 	}
 
-	/// <summary>
-	/// Insert multiple documents into the database. The documents will have their IDs
-	/// set if they are empty.
-	/// </summary>
 	public bool InsertMany<T>( IEnumerable<T> documents ) where T : class
 	{
-		if ( !CollectionAttributeHelper.TryGetAttribute( typeof(T), out var collectionAttr ) ) 
+		if ( !CollectionAttributeHelper.TryGetAttribute( typeof(T), out var collectionAttr ) )
 			return false;
 
-		var relevantCollection = _fileController.Cache.GetCollectionByName<T>( collectionAttr.Name, true );
-
-		if ( relevantCollection is null )
+		try
 		{
-			Log.Error( "failed to insert multiple documents into collection: collection not found" );
+			// The collection does not exist, create it
+			var relevantCollection = GetCollectionByName( collectionAttr.Name )
+			                         ?? CreateCollection( collectionAttr.Name );
+
+			foreach ( var document in documents )
+			{
+				var newDocument = new Document( document, collectionAttr.Name );
+				relevantCollection.InsertDocument( newDocument );
+			}
+
+			return true;
+		}
+		catch ( Exception ex )
+		{
+			Log.Error( "failed to insert many documents: " + ex.StackTrace );
 			return false;
 		}
-
-		foreach ( var document in documents )
-		{
-			var newDocument = new Document( document, collectionAttr.Name );
-			relevantCollection.InsertDocument( _fileController, newDocument );
-		}
-
-		return true;
 	}
 
-	/// <summary>
-	/// Fetch a single document from the database where selector evaluates to true.
-	/// </summary>
 	public T? SelectOne<T>( Func<T, bool> selector ) where T : class, new()
 	{
 		if ( !CollectionAttributeHelper.TryGetAttribute( typeof(T), out var collectionAttr ) )
 			return null;
 
-		var relevantCollection = _fileController.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+		var relevantCollection = GetCollectionByName( collectionAttr.Name );
 
 		if ( relevantCollection is null )
 			return null;
 
 		foreach ( var pair in relevantCollection.Documents )
 		{
-			if ( selector.Invoke( (T)pair.Value.Data ) )
-				return _fileController.Cache.Pool.CloneObject( (T)pair.Value.Data,
-					relevantCollection.DocumentClassType.FullName );
+			if ( !selector.Invoke( (T)pair.Value.Data ) ) continue;
+			return (T)pair.Value.Data;
 		}
 
 		return null;
 	}
 
-	/// <summary>
-	/// Select all documents from the database where selector evaluates to true.
-	/// </summary>
 	public List<T> Select<T>( Func<T, bool>? selector = null ) where T : class
 	{
 		var output = new List<T>();
@@ -100,68 +83,63 @@ public partial class RoverDatabase
 		if ( !CollectionAttributeHelper.TryGetAttribute( typeof(T), out var collectionAttr ) )
 			return output;
 
-		var relevantCollection = _fileController.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+		var relevantCollection = GetCollectionByName( collectionAttr.Name );
 
 		if ( relevantCollection is null )
 			return output;
 
+		Log.Info( "SELECTING FROM " +
+		          string.Join( ", ", relevantCollection.Name, relevantCollection.Documents.Count ) );
+
 		foreach ( var pair in relevantCollection.Documents )
 		{
 			// If the current document is not of the correct type, ignore it.
-			if ( pair.Value.Data.GetType() != typeof(T) )
-				continue;
+
+			Log.Info( "Pair: " + string.Join( ", ", pair.Value.Data.GetType(), typeof(T) ) );
+
+			// if ( pair.Value.Data.GetType() != typeof(T) )
+			// 	continue;
 
 			if ( selector is null || selector.Invoke( (T)pair.Value.Data ) )
 			{
-				output.Add(
-					_fileController.Cache.Pool.CloneObject( (T)pair.Value.Data,
-						relevantCollection.DocumentClassType.FullName ) );
+				// output.Add(
+				// 	CachePropertyExtensions.CloneObject( (T)pair.Value.Data ) );
+
+				// TODO - Maybe need to clone the object ?
+				output.Add( (T)pair.Value.Data );
 			}
 		}
 
 		return output;
 	}
 
-	/// <summary>
-	/// Delete all documents from the database where selector evaluates to true.
-	/// </summary>
 	public bool Delete<T>( Predicate<T> selector ) where T : class
 	{
-		if ( !CollectionAttributeHelper.TryGetAttribute( typeof(T), out var collectionAttr ) ) 
+		if ( !CollectionAttributeHelper.TryGetAttribute( typeof(T), out var collectionAttr ) )
 			return false;
 
-		var relevantCollection = _fileController.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+		var relevantCollection = GetCollectionByName( collectionAttr.Name );
 
 		if ( relevantCollection is null )
 			return false;
 
-		var idsToDelete = new List<object>();
-
 		foreach ( var pair in relevantCollection.Documents )
 		{
-			if ( selector.Invoke( (T)pair.Value.Data ) )
-				idsToDelete.Add( pair.Key );
-		}
+			if ( !selector.Invoke( (T)pair.Value.Data ) )
+				continue;
 
-		foreach ( var id in idsToDelete )
-		{
-			relevantCollection.Documents.TryRemove( id, out _ );
-			_fileController.DeleteDocument( collectionAttr.Name, id );
+			relevantCollection.DeleteDocument( pair.Value.DocumentId );
 		}
 
 		return true;
 	}
 
-	/// <summary>
-	/// Return whether there are any documents in the database where selector evaluates
-	/// to true.
-	/// </summary>
 	public bool Any<T>( Func<T, bool> selector ) where T : class
 	{
 		if ( !CollectionAttributeHelper.TryGetAttribute( typeof(T), out var collectionAttr ) )
 			return false;
 
-		var relevantCollection = _fileController.Cache.GetCollectionByName<T>( collectionAttr.Name, false );
+		var relevantCollection = GetCollectionByName( collectionAttr.Name );
 
 		if ( relevantCollection is null )
 		{
@@ -178,21 +156,8 @@ public partial class RoverDatabase
 		return false;
 	}
 
-	/// <summary>
-	/// Return whether there are any documents in the database where selector evaluates
-	/// to true.
-	/// </summary>
 	public bool Exists<T>( Func<T, bool> selector ) where T : class
 	{
-		var result = Select( selector ).FirstOrDefault( selector );
-		return result is not null;
-	}
-
-	/// <summary>
-	/// Deletes everything, forever.
-	/// </summary>
-	public void DeleteAllData()
-	{
-		_fileController.WipeFilesystem();
+		return Select( selector ).FirstOrDefault( selector ) is not null;
 	}
 }

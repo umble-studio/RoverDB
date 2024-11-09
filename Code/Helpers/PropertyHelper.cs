@@ -22,6 +22,6 @@ internal static class PropertyHelper
 
 	public static bool IsPropertyGuid( this PropertyDescription property )
 	{
-		return property.PropertyType == typeof( Guid );
+		return property.PropertyType == typeof(Guid);
 	}
 }

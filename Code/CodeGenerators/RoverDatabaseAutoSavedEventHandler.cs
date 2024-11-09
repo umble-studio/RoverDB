@@ -11,22 +11,12 @@ public static class RoverDatabaseAutoSavedEventHandler
 	private static readonly object _autoSaveLock = new();
 	private static object? _objectBeingAutoSaved;
 
-	// public static void WipeStaticFields()
-	// {
-	// 	_objectBeingAutoSaved = null;
-	// }
-
 	public static void AutoSave<T>( WrappedPropertySet<T> p )
 	{
 		p.Setter( p.Value );
 
 		// Don't auto-save while we are initialising. It is pointless.
 		if ( !RoverDatabase.Instance.IsInitialised ) return;
-
-		// var id = (string)GlobalGameNamespace.TypeLibrary.GetPropertyValue( p.Object, "UID" );
-		//
-		// // If the UID is not set then we can assume this document hasn't even been fully created yet.
-		// if ( string.IsNullOrEmpty( id ) ) return;
 
 		var propertyId = GlobalGameNamespace.TypeLibrary.GetPropertyDescriptions( p.Object )
 			.FirstOrDefault( x => x.Attributes.Any( a => a is IdAttribute ) );
@@ -54,13 +44,6 @@ public static class RoverDatabaseAutoSavedEventHandler
 			try
 			{
 				_objectBeingAutoSaved = p.Object;
-
-				// var collectionName = (string)GlobalGameNamespace.TypeLibrary.GetPropertyValue(
-				// 	p.Attributes.First( x => x.GetType().ToString() == "RoverDB.Attributes.AutoSavedAttribute" ),
-				// 	"CollectionName" );
-				//
-				// RoverDatabase.Instance.Insert( collectionName, p.Object );
-
 				RoverDatabase.Instance.Insert( p.Object );
 			}
 			finally

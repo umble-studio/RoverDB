@@ -11,12 +11,12 @@ public partial class RoverDatabase
 		{
 			Log.Info( "Initializing ticker..." );
 
-			while( Game.IsPlaying || TestHelpers.IsUnitTests )
+			while ( Game.IsPlaying || TestHelpers.IsUnitTests )
 			{
-				_fileController.Cache.Tick();
-				_fileController.Cache.Pool.TryCheckPool();
+				foreach ( var (_, collection) in _collections )
+					collection.Save();
 
-				await Task.Delay( Config.TickDelta );
+				await GameTask.DelaySeconds( Config.SaveInterval );
 			}
 		} );
 	}

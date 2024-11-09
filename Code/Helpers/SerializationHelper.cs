@@ -7,16 +7,16 @@ namespace RoverDB.Helpers;
 
 internal static class SerializationHelper
 {
-	private static readonly JsonSerializerOptions _jsonOptions = new()
+	public static readonly JsonSerializerOptions _jsonOptions = new()
 	{
 		ReadCommentHandling = JsonCommentHandling.Skip,
-		WriteIndented = Config.IndentJson,
+		WriteIndented = false,
 		Converters = { new GenericSavedDataConverter() }
 	};
 
 	public static string Serialize<T>( T value )
 	{
-		return value is null ? string.Empty : Serialize( value, typeof(T) );
+		return Serialize( value!, typeof(T) );
 	}
 
 	public static string Serialize( object value, Type inputType )

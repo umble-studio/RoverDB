@@ -1,5 +1,6 @@
 ﻿using System;
-using RoverDB.IO;
+using RoverDB.Extensions;
+using Sandbox;
 
 namespace RoverDB;
 
@@ -31,9 +32,9 @@ public partial class RoverDatabase
 
 			try
 			{
-				_fileController.Initialize();
+				CachePropertyExtensions.Wipe();
 
-				if ( !_fileController.EnsureFileSystemSetup() ) return;
+				if ( !EnsureFileSystemSetup() ) return;
 
 				LoadCollections();
 				InitializeTicker();
@@ -63,36 +64,34 @@ public partial class RoverDatabase
 	{
 		lock ( _initializationLock )
 		{
-			var collectionNames = _fileController.ListCollectionNames();
+			var collectionNames = Collection.ListCollectionNames();
+			Log.Warning( $"Loading {collectionNames.Count} collections" );
 
 			foreach ( var collectionName in collectionNames )
 			{
 				Log.Info( $"attempting to load collection \"{collectionName}\"" );
-				LoadCollection( collectionName );
+
+				var collection = new Collection( collectionName );
+				collection.Load();
+
+				_collections.Add( collectionName, collection );
 			}
 		}
 	}
 
-	/// <summary>
-	/// Returns null on success or the error message on failure.
-	/// </summary>
-	private bool LoadCollection( string name )
+	private static bool EnsureFileSystemSetup()
 	{
-		var definition = _fileController.LoadCollectionDefinition( name );
-
-		if ( definition is null )
+		try
 		{
-			Log.Error(
-				$"found a folder for collection {name} but the definition.txt was missing in that folder or failed to load" );
+			if ( !FileSystem.Data.DirectoryExists( Config.DatabaseName ) )
+				FileSystem.Data.CreateDirectory( Config.DatabaseName );
+
+			return true;
+		}
+		catch ( Exception e )
+		{
+			Log.Error( "failed to ensure filesystem setup: " + e.Message );
 			return false;
 		}
-
-		var documents = _fileController.LoadAllCollectionsDocuments( definition );
-
-		_fileController.Cache.CreateCollection( name, definition.DocumentClassType );
-		_fileController.Cache.InsertDocumentsIntoCollection( name, documents );
-
-		Log.Info( $"Loaded collection {name} with {documents.Count} documents" );
-		return true;
 	}
 }
